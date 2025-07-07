@@ -3,21 +3,28 @@ import matplotlib.pyplot as plt
 
 # Env setting
 
-mean = 0
+np.random.seed(42)
 variance = 10
 noise = 5
 horizon = 20
+num = 300
+mean = [50, 0, -50]
 
-np.random.seed(42)
-env = np.random.normal(mean,variance,10)
-def select_arm(n) : # select bandit w/ noise
+mix_env = np.random.normal(mean[1], variance, 10 * num).reshape(num, 10)
+pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
+neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
+tot_env = [pos_env, mix_env, neg_env]
+env_name = ['pos', 'mix', 'neg']
+
+def select_arm(n, env) : # select bandit w/ noise
     return env[n] + np.random.normal(0, noise)
 
+ex = mix_env[0, :]
 plt.figure(figsize=(5, 2))
 plt.title("sample multi armed bandit")
-plt.imshow(env.reshape(1, -1), origin='lower', cmap = 'coolwarm')
+plt.imshow(ex.reshape(1, -1), origin='lower', cmap = 'coolwarm')
 for i in range(10) :
-    plt.text(i, 0, f"{env[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
+    plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
 plt.xticks([i for i in range(10)])
 plt.yticks([])
 plt.savefig('sample env.png')
@@ -25,7 +32,7 @@ plt.savefig('sample env.png')
 
 # Agent simulation - Kalman Filter based
 strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)']
-def simulate(option, hori = horizon) :
+def simulate(option, env, mean, hori = horizon) :
     al, rl = [], []
     result = 0
 
@@ -35,7 +42,7 @@ def simulate(option, hori = horizon) :
 
     for t in range(hori):
         action = get_action(mu_post, sigma_post, option, result)
-        reward = select_arm(action)
+        reward = select_arm(action, env)
 
         al.append(action)
         rl.append(reward)
@@ -77,31 +84,48 @@ def get_action(mean, variance, option, result) :
     return 0
 
 
-a, r, t = [], [], []
+result_r = [[], [], []] # env * strategy * trial * horizon
+for i in range(4):
+    for e in range(3):
+        result_r[e].append([])
+
+    for t in range(num):
+        for e in range(3):
+            env_input = tot_env[e][t, :]
+            _, r, _ = simulate(i, env_input, mean[e])
+            result_r[e][i].append(np.cumsum(r))
+
 x = [i for i in range(horizon)]
-for i in range(4) :
-    print("[", strategy[i], "]")
-    al, rl, result = simulate(i)
-    print("actions", al)
-    print("results", rl)
-    print("total", result)
-    print("")
+for e in range(3) :
+    plt.figure(figsize=(6, 5))
+    plt.title('Reward accumulation over strategies, ' + env_name[e])
+    for i in range(4) :
+        data = result_r[e][i]
+        plt.plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
+        q1 = np.percentile(data, 25, axis = 0)
+        q3 = np.percentile(data, 75, axis = 0)
 
-    a.append(al)
-    r.append(rl)
-    t.append(result)
+        plt.fill_between(x, q1, q3, alpha = 0.2)
+    plt.xlabel("Trial")
+    plt.xticks([i for i in range(horizon)])
+    plt.ylabel("Accumulated Reward")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('reward accumulationm, ' + env_name[e] + '.png')
 
+"""
 plt.figure(figsize=(6, 5))
-plt.title('Reward accumulation over strategies')
+plt.title('Reward over strategies')
 for i in range(4) :
-    plt.plot(x, np.cumsum(r[i]), linestyle='--', marker='o', label=strategy[i])
+    plt.plot(x, r[i], linestyle='--', marker='o', label=strategy[i])
 plt.xlabel("Trial")
 plt.xticks([i for i in range(horizon)])
-plt.ylabel("Accumulated Reward")
+plt.ylabel("Reward per trial")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig('reward accumulation.png')
+plt.savefig('reward per trial.png')
 
 switch = [0 for i in range(4)]
 for s in range(4) :
@@ -117,3 +141,4 @@ plt.xticks([i for i in range(4)], strategy)
 for i, val in enumerate(switch):
     plt.text(i, val - 0.05, f"{val:.3f}", ha='center', va='bottom', fontsize=10, color="white")
 plt.savefig('switch rate.png')
+"""
