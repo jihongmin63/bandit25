@@ -29,7 +29,7 @@ def simulate(option, hori = horizon) :
     al, rl = [], []
     result = 0
 
-    mu_post = np.array([0 for i in range(10)])
+    mu_post = np.array([mean for i in range(10)])
     sigma_post = np.array([10 for i in range(10)])
     sigma_0 = 10
 
