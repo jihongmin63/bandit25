@@ -27,14 +27,14 @@ for i in range(10) :
     plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
 plt.xticks([i for i in range(10)])
 plt.yticks([])
-plt.savefig('sample env.png')
+plt.savefig('images/sample env.png')
 
 
 # Agent simulation - Kalman Filter based
 strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)']
 def simulate(option, env, mean, hori = horizon) :
     al, rl = [], []
-    result = 0
+    result, switch, directed, random = 0, 0, 0, 0
 
     mu_post = np.array([mean for i in range(10)])
     sigma_post = np.array([10 for i in range(10)])
@@ -52,7 +52,11 @@ def simulate(option, env, mean, hori = horizon) :
         sigma_post[action] = (1-K_t) * sigma_post[action]
         mu_post[action] += K_t * (reward - mu_post[action])
 
-    return al, rl, result
+    for t in range(1, hori) :
+        if(al[t-1] != al[t]) :
+            switch += 1 / (hori-1)
+
+    return al, rl, result, switch
 
 def prospect(x, alpha=0.88, beta=0.88, lam=2.25):
     if isinstance(x, (float, int)):
@@ -85,15 +89,21 @@ def get_action(mean, variance, option, result) :
 
 
 result_r = [[], [], []] # env * strategy * trial * horizon
+tot_r = [[], [], []] # env * strategy * trial
+switch = [[], [], []] # env * strategy * trial
 for i in range(4):
     for e in range(3):
         result_r[e].append([])
+        tot_r[e].append([])
+        switch[e].append([])
 
     for t in range(num):
         for e in range(3):
             env_input = tot_env[e][t, :]
-            _, r, _ = simulate(i, env_input, mean[e])
+            _, r, total, s = simulate(i, env_input, mean[e])
             result_r[e][i].append(np.cumsum(r))
+            tot_r[e][i].append(total)
+            switch[e][i].append(s)
 
 x = [i for i in range(horizon)]
 for e in range(3) :
@@ -112,21 +122,53 @@ for e in range(3) :
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('reward accumulationm, ' + env_name[e] + '.png')
+    plt.savefig('images/reward accumulationm, ' + env_name[e] + '.png')
+
+for e in range(3) :
+    plt.figure(figsize=(9, 5))
+    plt.title('Reward over strategies, ' + env_name[e])
+    data = np.mean(tot_r[e], axis=1) 
+    q1 = np.percentile(tot_r[e], 25, axis=1)
+    q3 = np.percentile(tot_r[e], 75, axis=1) 
+    err = np.vstack([data - q1, q3 - data]) 
+    plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
+    'ecolor': 'gray',
+    'capsize': 4,
+    'capthick': 1.5,
+    'linestyle': '--'
+})
+    plt.xlabel("Trial")
+    plt.xticks([i for i in range(4)], strategy)
+    for i, val in enumerate(np.mean(tot_r[e], axis = 1)):
+        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
+    plt.ylabel("Reward")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('images/total reward over strategies, ' + env_name[e] + '.png')
+
+for e in range(3) :
+    plt.figure(figsize=(9, 5))
+    plt.title('Switch over strategies, ' + env_name[e])
+    data = np.mean(switch[e], axis=1) 
+    q1 = np.percentile(switch[e], 25, axis=1)
+    q3 = np.percentile(switch[e], 75, axis=1) 
+    err = np.vstack([data - q1, q3 - data]) 
+    plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
+    'ecolor': 'gray',
+    'capsize': 4,
+    'capthick': 1.5,
+    'linestyle': '--'
+})
+    plt.xlabel("Trial")
+    plt.xticks([i for i in range(4)], strategy)
+    for i, val in enumerate(np.mean(switch[e], axis = 1)):
+        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
+    plt.ylabel("Switch ratio")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('images/switch over strategies, ' + env_name[e] + '.png')
 
 """
-plt.figure(figsize=(6, 5))
-plt.title('Reward over strategies')
-for i in range(4) :
-    plt.plot(x, r[i], linestyle='--', marker='o', label=strategy[i])
-plt.xlabel("Trial")
-plt.xticks([i for i in range(horizon)])
-plt.ylabel("Reward per trial")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.savefig('reward per trial.png')
-
 switch = [0 for i in range(4)]
 for s in range(4) :
     for i in range(1, horizon) :
