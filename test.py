@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 np.random.seed(42)
 variance = 10
-noise = 5
+noise = 10
 horizon = 20
 num = 300
 mean = [50, 0, -50]
@@ -37,8 +37,8 @@ def simulate(option, env, mean, hori = horizon) :
     result, switch, directed, random = 0, 0, 0, 0
 
     mu_post = np.array([mean for i in range(10)])
-    sigma_post = np.array([10 for i in range(10)])
-    sigma_0 = 10
+    sigma_post = np.array([noise for i in range(10)])
+    sigma_0 = noise
 
     for t in range(hori):
         action = get_action(mu_post, sigma_post, option, result)
@@ -104,32 +104,47 @@ for i in range(4):
             result_r[e][i].append(np.cumsum(r))
             tot_r[e][i].append(total)
             switch[e][i].append(s)
+tot_r = np.array(tot_r)
 
 x = [i for i in range(horizon)]
 for e in range(3) :
-    plt.figure(figsize=(6, 5))
-    plt.title('Reward accumulation over strategies, ' + env_name[e])
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    axes[0].set_title('Reward accumulation over strategies, ' + env_name[e])
+    axes[1].set_title('(Relative) Reward accumulation over strategies, ' + env_name[e])
     for i in range(4) :
         data = result_r[e][i]
-        plt.plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
+        axes[0].plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
         q1 = np.percentile(data, 25, axis = 0)
         q3 = np.percentile(data, 75, axis = 0)
+        axes[0].fill_between(x, q1, q3, alpha = 0.2)
 
-        plt.fill_between(x, q1, q3, alpha = 0.2)
-    plt.xlabel("Trial")
-    plt.xticks([i for i in range(horizon)])
-    plt.ylabel("Accumulated Reward")
-    plt.legend()
-    plt.grid(True)
+        relative = np.cumsum(np.ones_like(data) * mean[e], axis = 1)
+        data = data - relative
+        axes[1].plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
+        q1 = np.percentile(data, 25, axis = 0)
+        q3 = np.percentile(data, 75, axis = 0)
+        axes[1].fill_between(x, q1, q3, alpha = 0.2)
+    axes[0].set_xlabel("Trial")
+    axes[0].set_xticks([i for i in range(horizon)])
+    axes[0].set_ylabel("Accumulated Reward")
+    axes[0].legend()
+    axes[0].grid(True)
+
+    axes[1].set_xlabel("Trial")
+    axes[1].set_xticks([i for i in range(horizon)])
+    axes[1].set_ylabel("Accumulated Reward")
+    axes[1].legend()
+    axes[1].grid(True)
+
     plt.tight_layout()
     plt.savefig('images/reward accumulationm, ' + env_name[e] + '.png')
 
 for e in range(3) :
     plt.figure(figsize=(9, 5))
-    plt.title('Reward over strategies, ' + env_name[e])
-    data = np.mean(tot_r[e], axis=1) 
-    q1 = np.percentile(tot_r[e], 25, axis=1)
-    q3 = np.percentile(tot_r[e], 75, axis=1) 
+    plt.title('(relative) Reward over strategies, ' + env_name[e])
+    data = np.mean(tot_r[e], axis=1) - mean[e] * horizon
+    q1 = np.percentile(tot_r[e]- mean[e] * horizon, 25, axis=1)
+    q3 = np.percentile(tot_r[e]- mean[e] * horizon, 75, axis=1) 
     err = np.vstack([data - q1, q3 - data]) 
     plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
     'ecolor': 'gray',
@@ -139,48 +154,46 @@ for e in range(3) :
 })
     plt.xlabel("Trial")
     plt.xticks([i for i in range(4)], strategy)
-    for i, val in enumerate(np.mean(tot_r[e], axis = 1)):
+    for i, val in enumerate(data):
         plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
     plt.ylabel("Reward")
     plt.grid(True)
     plt.tight_layout()
     plt.savefig('images/total reward over strategies, ' + env_name[e] + '.png')
 
-for e in range(3) :
-    plt.figure(figsize=(9, 5))
-    plt.title('Switch over strategies, ' + env_name[e])
-    data = np.mean(switch[e], axis=1) 
+
+bar_width = 0.2
+offsets = [-bar_width, 0, bar_width]
+x = np.array([i for i in range(4)])
+plt.figure(figsize=(10, 6))
+for e in range(3):
+    data = np.mean(switch[e], axis=1)
     q1 = np.percentile(switch[e], 25, axis=1)
-    q3 = np.percentile(switch[e], 75, axis=1) 
-    err = np.vstack([data - q1, q3 - data]) 
-    plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
-    'ecolor': 'gray',
-    'capsize': 4,
-    'capthick': 1.5,
-    'linestyle': '--'
-})
-    plt.xlabel("Trial")
-    plt.xticks([i for i in range(4)], strategy)
-    for i, val in enumerate(np.mean(switch[e], axis = 1)):
-        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
-    plt.ylabel("Switch ratio")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig('images/switch over strategies, ' + env_name[e] + '.png')
+    q3 = np.percentile(switch[e], 75, axis=1)
+    err = np.vstack([data - q1, q3 - data])
+    
+    # 각 env의 bar 위치는 x + offset
+    plt.bar(
+        x + offsets[e], data, width=bar_width, yerr=err,
+        label=env_name[e],
+        error_kw={
+            'ecolor': 'gray',
+            'capsize': 4,
+            'capthick': 1.5,
+            'linestyle': '--'
+        }
+    )
+    
+    for i in range(4):
+        plt.text(x[i] + offsets[e], data[i] + 0.01, f"{data[i]:.3f}",
+                 ha='center', va='bottom', fontsize=9)
 
-"""
-switch = [0 for i in range(4)]
-for s in range(4) :
-    for i in range(1, horizon) :
-        if (a[s][i-1] != a[s][i]) :
-            switch[s] += 1
-    switch[s] /= (horizon-1)
-
-plt.figure(figsize=(10, 5))
-plt.title('# of Switches over strategies')
-plt.bar([i for i in range(4)], switch, width = 0.6)
-plt.xticks([i for i in range(4)], strategy)
-for i, val in enumerate(switch):
-    plt.text(i, val - 0.05, f"{val:.3f}", ha='center', va='bottom', fontsize=10, color="white")
-plt.savefig('switch rate.png')
-"""
+plt.xticks(x, strategy)
+plt.xlabel("Strategy")
+plt.ylabel("Switch Ratio")
+plt.title("Switch over strategies by environment")
+plt.grid(True, axis='y')
+plt.legend()
+plt.tight_layout()
+plt.savefig("images/grouped switch ratio.png")
+plt.show()
