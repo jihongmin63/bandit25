@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import ttest_ind
+import itertools
 
 # Env setting
 
@@ -178,17 +180,38 @@ for e in range(3):
     plt.bar(
         x + offsets[e], data, width=bar_width, yerr=err,
         label=env_name[e],
-        error_kw={
-            'ecolor': 'gray',
-            'capsize': 4,
-            'capthick': 1.5,
-            'linestyle': '--'
-        }
+        error_kw={'ecolor': 'gray', 'capsize': 4, 'capthick': 1.5, 'linestyle': '--'}
     )
     
     for i in range(4):
         plt.text(x[i] + offsets[e], data[i] + 0.01, f"{data[i]:.3f}",
                  ha='center', va='bottom', fontsize=9)
+
+
+pairs = list(itertools.combinations(range(3), 2))
+
+for i in range(4):
+    base = np.max([np.mean(switch[e][i]) + np.std(switch[e][i]) for e in range(3)]) + 0.02
+    
+    for j, (a, b) in enumerate(pairs):
+        stat, pval = ttest_ind(switch[a][i], switch[b][i])
+        
+        if pval < 0.001:
+            label = '***'
+        elif pval < 0.01:
+            label = '**'
+        elif pval < 0.05:
+            label = '*'
+        else:
+            continue
+
+        h = base + 0.03 * j
+        x1 = x[i] + offsets[a]
+        x2 = x[i] + offsets[b]
+        xm = (x1 + x2) / 2
+
+        plt.plot([x1, x1, x2, x2], [h, h+0.003, h+0.003, h], lw=1.2, c='black')
+        plt.text(xm, h + 0.005, label, ha='center', va='bottom', fontsize=10)
 
 plt.xticks(x, strategy)
 plt.xlabel("Strategy")
@@ -197,4 +220,4 @@ plt.title("Switch over strategies by environment")
 plt.grid(True, axis='y')
 plt.legend()
 plt.tight_layout()
-plt.savefig("images/grouped switch ratio.png")
+plt.savefig("images/grouped_switch_ratio_with_pvalues.png")
