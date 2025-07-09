@@ -6,13 +6,16 @@ import matplotlib.pyplot as plt
 np.random.seed(42)
 variance = 10
 noise = 10
-horizon = 20
+horizon = 70
 num = 300
 mean = [50, 0, -50]
+expected_mean = [50, 0, -50]
 
 mix_env = np.random.normal(mean[1], variance, 10 * num).reshape(num, 10)
-pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
-neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
+pos_env = mix_env + 50
+neg_env = mix_env - 50
+#pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
+#neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
 tot_env = [pos_env, mix_env, neg_env]
 env_name = ['pos', 'mix', 'neg']
 
@@ -100,7 +103,7 @@ for i in range(4):
     for t in range(num):
         for e in range(3):
             env_input = tot_env[e][t, :]
-            _, r, total, s = simulate(i, env_input, mean[e])
+            _, r, total, s = simulate(i, env_input, expected_mean[e])
             result_r[e][i].append(np.cumsum(r))
             tot_r[e][i].append(total)
             switch[e][i].append(s)
@@ -125,13 +128,13 @@ for e in range(3) :
         q3 = np.percentile(data, 75, axis = 0)
         axes[1].fill_between(x, q1, q3, alpha = 0.2)
     axes[0].set_xlabel("Trial")
-    axes[0].set_xticks([i for i in range(horizon)])
+    axes[0].set_xticks([i*10 for i in range(int(horizon/10))])
     axes[0].set_ylabel("Accumulated Reward")
     axes[0].legend()
     axes[0].grid(True)
 
     axes[1].set_xlabel("Trial")
-    axes[1].set_xticks([i for i in range(horizon)])
+    axes[1].set_xticks([i*10 for i in range(int(horizon/10))])
     axes[1].set_ylabel("Accumulated Reward")
     axes[1].legend()
     axes[1].grid(True)
@@ -143,8 +146,8 @@ for e in range(3) :
     plt.figure(figsize=(9, 5))
     plt.title('(relative) Reward over strategies, ' + env_name[e])
     data = np.mean(tot_r[e], axis=1) - mean[e] * horizon
-    q1 = np.percentile(tot_r[e]- mean[e] * horizon, 25, axis=1)
-    q3 = np.percentile(tot_r[e]- mean[e] * horizon, 75, axis=1) 
+    q1 = np.percentile(tot_r[e] - mean[e] * horizon, 25, axis=1)
+    q3 = np.percentile(tot_r[e] - mean[e] * horizon, 75, axis=1) 
     err = np.vstack([data - q1, q3 - data]) 
     plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
     'ecolor': 'gray',
@@ -172,7 +175,6 @@ for e in range(3):
     q3 = np.percentile(switch[e], 75, axis=1)
     err = np.vstack([data - q1, q3 - data])
     
-    # 각 env의 bar 위치는 x + offset
     plt.bar(
         x + offsets[e], data, width=bar_width, yerr=err,
         label=env_name[e],
@@ -196,4 +198,3 @@ plt.grid(True, axis='y')
 plt.legend()
 plt.tight_layout()
 plt.savefig("images/grouped switch ratio.png")
-plt.show()
