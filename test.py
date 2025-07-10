@@ -1,15 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
+from scipy.optimize import minimize
 import itertools
+import optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 # Env setting
 
 np.random.seed(42)
 variance = 10
 noise = 10
-horizon = 70
-num = 300
+horizon = 20
+num = 100
 mean = [50, 0, -50]
 expected_mean = [50, 0, -50]
 
@@ -63,12 +66,12 @@ def simulate(option, env, mean, hori = horizon) :
 
     return al, rl, result, switch
 
-def prospect(x, alpha=0.88, beta=0.88, lam=2.25):
+def prospect(x, alpha, lam):
     if isinstance(x, (float, int)):
         if x >= 0:
             return  np.power(x, alpha)
         else:
-            return  -lam * np.power(-x, beta)
+            return  -lam * np.power(-x, alpha)
     elif isinstance(x, np.ndarray):
         util = np.empty_like(x, dtype=float)
 
@@ -76,23 +79,72 @@ def prospect(x, alpha=0.88, beta=0.88, lam=2.25):
         neg = x < 0
 
         util[pos] = np.power(x[pos], alpha)
-        util[neg] = -lam * np.power(-x[neg], beta)
+        util[neg] = -lam * np.power(-x[neg], alpha)
 
         return util
 
-def get_action(mean, variance, option, result) :
+def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
     if (option == 0) : # generic UCB
-        return np.argmax(mean + variance)
+        return np.argmax(mean + beta * variance)
     elif (option == 1) : # relatvie prospect UCB
-        return np.argmax(prospect(mean + result) - prospect(result) + variance)
+        return np.argmax(prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance)
     elif (option == 2) : # prospect UCB
-        return np.argmax(prospect(mean) + variance)
+        return np.argmax(prospect(mean, alpha=alpha, lam=lam) + beta * variance)
     elif (option == 3) : # relative prospect UCB (inner)
-        return np.argmax(prospect(mean + variance + result) - prospect(result))
+        return np.argmax(prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam))
  
     return 0
 
+def reward(alpha, beta, lam, m, v, option, e) :
 
+    tot = 0
+
+    for i in range(num) :
+        cur = 0
+        env = tot_env[e][i, :]
+        mu_post = np.array([m for i in range(10)])
+        sigma_post = np.array([v for i in range(10)])
+        sigma_0 = v
+
+        for t in range(horizon):
+            action = get_action(mu_post, sigma_post, option, cur, alpha = alpha, beta = beta, lam = lam)
+            reward = select_arm(action, env)
+            cur += reward
+
+            K_t = sigma_post[action] / (sigma_post[action] + sigma_0)
+            sigma_post[action] = (1-K_t) * sigma_post[action]
+            mu_post[action] += K_t * (reward - mu_post[action])
+            
+        tot += cur
+    
+    return tot
+
+for st, name in enumerate(strategy) :
+    en = 1
+
+    def objective(trial):
+        if st != 0 :
+            alpha = trial.suggest_float('alpha', 0.1, 3.0)
+            beta = trial.suggest_float('beta', -10, 10)
+            lamb = trial.suggest_float('lambda', 1.0, 10.0)
+            m = trial.suggest_float('mean', -100.0, 100.0)
+            n = trial.suggest_float('noise', 0.1, 20.0)
+        else :
+            alpha = 1
+            beta = trial.suggest_float('beta', -10, 10)
+            lamb = 1
+            m = trial.suggest_float('mean', -100.0, 100.0)
+            n = trial.suggest_float('noise', 0.1, 20.0)
+            
+        return reward(alpha, beta, lamb, m, n, st, en)
+
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=1000)
+
+    print("[" + name + "]")
+    print("Best parameters:", study.best_params)
+
+"""
 result_r = [[], [], []] # env * strategy * trial * horizon
 tot_r = [[], [], []] # env * strategy * trial
 switch = [[], [], []] # env * strategy * trial
@@ -110,6 +162,11 @@ for i in range(4):
             tot_r[e][i].append(total)
             switch[e][i].append(s)
 tot_r = np.array(tot_r)
+
+
+
+
+# Results
 
 x = [i for i in range(horizon)]
 for e in range(3) :
@@ -221,3 +278,4 @@ plt.grid(True, axis='y')
 plt.legend()
 plt.tight_layout()
 plt.savefig("images/grouped_switch_ratio_with_pvalues.png")
+"""
