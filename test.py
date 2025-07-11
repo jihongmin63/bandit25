@@ -1,153 +1,19 @@
 import numpy as np
+import json
+import itertools
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
-from scipy.optimize import minimize
-import itertools
-import optuna
-optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-# Env setting
+from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, init
+from function import prospect, select_arm, get_action, simulate
 
-np.random.seed(42)
-variance = 10
-noise = 10
-horizon = 20
-num = 100
-mean = [50, 0, -50]
-expected_mean = [50, 0, -50]
+with open("best_params.json", "r") as f:
+    best_params = json.load(f)
 
-mix_env = np.random.normal(mean[1], variance, 10 * num).reshape(num, 10)
-pos_env = mix_env + 50
-neg_env = mix_env - 50
-#pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
-#neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
-tot_env = [pos_env, mix_env, neg_env]
-env_name = ['pos', 'mix', 'neg']
-
-def select_arm(n, env) : # select bandit w/ noise
-    return env[n] + np.random.normal(0, noise)
-
-ex = mix_env[0, :]
-plt.figure(figsize=(5, 2))
-plt.title("sample multi armed bandit")
-plt.imshow(ex.reshape(1, -1), origin='lower', cmap = 'coolwarm')
-for i in range(10) :
-    plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
-plt.xticks([i for i in range(10)])
-plt.yticks([])
-plt.savefig('images/sample env.png')
-
-
-# Agent simulation - Kalman Filter based
-strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)']
-def simulate(option, env, mean, hori = horizon) :
-    al, rl = [], []
-    result, switch, directed, random = 0, 0, 0, 0
-
-    mu_post = np.array([mean for i in range(10)])
-    sigma_post = np.array([noise for i in range(10)])
-    sigma_0 = noise
-
-    for t in range(hori):
-        action = get_action(mu_post, sigma_post, option, result)
-        reward = select_arm(action, env)
-
-        al.append(action)
-        rl.append(reward)
-        result += reward
-
-        K_t = sigma_post[action] / (sigma_post[action] + sigma_0)
-        sigma_post[action] = (1-K_t) * sigma_post[action]
-        mu_post[action] += K_t * (reward - mu_post[action])
-
-    for t in range(1, hori) :
-        if(al[t-1] != al[t]) :
-            switch += 1 / (hori-1)
-
-    return al, rl, result, switch
-
-def prospect(x, alpha, lam):
-    if isinstance(x, (float, int)):
-        if x >= 0:
-            return  np.power(x, alpha)
-        else:
-            return  -lam * np.power(-x, alpha)
-    elif isinstance(x, np.ndarray):
-        util = np.empty_like(x, dtype=float)
-
-        pos = x >= 0
-        neg = x < 0
-
-        util[pos] = np.power(x[pos], alpha)
-        util[neg] = -lam * np.power(-x[neg], alpha)
-
-        return util
-
-def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
-    if (option == 0) : # generic UCB
-        return np.argmax(mean + beta * variance)
-    elif (option == 1) : # relatvie prospect UCB
-        return np.argmax(prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance)
-    elif (option == 2) : # prospect UCB
-        return np.argmax(prospect(mean, alpha=alpha, lam=lam) + beta * variance)
-    elif (option == 3) : # relative prospect UCB (inner)
-        return np.argmax(prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam))
- 
-    return 0
-
-def reward(alpha, beta, lam, m, v, option, e) :
-
-    tot = 0
-
-    for i in range(num) :
-        cur = 0
-        env = tot_env[e][i, :]
-        mu_post = np.array([m for i in range(10)])
-        sigma_post = np.array([v for i in range(10)])
-        sigma_0 = v
-
-        for t in range(horizon):
-            action = get_action(mu_post, sigma_post, option, cur, alpha = alpha, beta = beta, lam = lam)
-            reward = select_arm(action, env)
-            cur += reward
-
-            K_t = sigma_post[action] / (sigma_post[action] + sigma_0)
-            sigma_post[action] = (1-K_t) * sigma_post[action]
-            mu_post[action] += K_t * (reward - mu_post[action])
-            
-        tot += cur
-    
-    return tot
-
-for st, name in enumerate(strategy) :
-    en = 1
-
-    def objective(trial):
-        if st != 0 :
-            alpha = trial.suggest_float('alpha', 0.1, 3.0)
-            beta = trial.suggest_float('beta', -10, 10)
-            lamb = trial.suggest_float('lambda', 1.0, 10.0)
-            m = trial.suggest_float('mean', -100.0, 100.0)
-            n = trial.suggest_float('noise', 0.1, 20.0)
-        else :
-            alpha = 1
-            beta = trial.suggest_float('beta', -10, 10)
-            lamb = 1
-            m = trial.suggest_float('mean', -100.0, 100.0)
-            n = trial.suggest_float('noise', 0.1, 20.0)
-            
-        return reward(alpha, beta, lamb, m, n, st, en)
-
-    study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=1000)
-
-    print("[" + name + "]")
-    print("Best parameters:", study.best_params)
-
-"""
 result_r = [[], [], []] # env * strategy * trial * horizon
 tot_r = [[], [], []] # env * strategy * trial
 switch = [[], [], []] # env * strategy * trial
+
 for i in range(4):
     for e in range(3):
         result_r[e].append([])
@@ -155,15 +21,24 @@ for i in range(4):
         switch[e].append([])
 
     for t in range(num):
-        for e in range(3):
+        for e in range(3):       
+            variable = []
+            dic = best_params[strategy[i]]
+
+            for n in variables :
+                if n in dic :
+                    variable.append(dic[n])
+                else :
+                    variable.append(init[n])
+
+            variable[3] = mean[e]
             env_input = tot_env[e][t, :]
-            _, r, total, s = simulate(i, env_input, expected_mean[e])
+            _, r, total, s = simulate(variable, i, env_input)
             result_r[e][i].append(np.cumsum(r))
             tot_r[e][i].append(total)
             switch[e][i].append(s)
+
 tot_r = np.array(tot_r)
-
-
 
 
 # Results
@@ -278,4 +153,3 @@ plt.grid(True, axis='y')
 plt.legend()
 plt.tight_layout()
 plt.savefig("images/grouped_switch_ratio_with_pvalues.png")
-"""
