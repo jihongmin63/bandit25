@@ -4,7 +4,7 @@ import itertools
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
 
-from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, init
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, init
 from function import prospect, select_arm, get_action, simulate
 
 with open("best_params.json", "r") as f:
@@ -32,7 +32,7 @@ for i in range(4):
                     variable.append(init[n])
 
             variable[3] = mean[e]
-            env_input = tot_env[e][t, :]
+            env_input = test_env[e][t, :]
             _, r, total, s = simulate(variable, i, env_input)
             result_r[e][i].append(np.cumsum(r))
             tot_r[e][i].append(total)
@@ -91,6 +91,7 @@ for e in range(3) :
 })
     plt.xlabel("Trial")
     plt.xticks([i for i in range(4)], strategy)
+    plt.yticks([100 * i for i in range(1, 6)])
     for i, val in enumerate(data):
         plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
     plt.ylabel("Reward")

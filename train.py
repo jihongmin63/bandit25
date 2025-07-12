@@ -40,8 +40,9 @@ for st, name in enumerate(strategy) :
 
         ret = 0
         for e in range(3) :
-            vari[3] = mean[e] # mean
-            ret += reward(vari, st, e)
+            vari[3] = mean[e]
+            ret += reward(vari, st, e) - mean[e] * horizon * num
+        
         return ret
 
     study = optuna.create_study(direction='maximize')

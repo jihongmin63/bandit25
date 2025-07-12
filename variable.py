@@ -3,34 +3,36 @@ import matplotlib.pyplot as plt
 
 variance = 10
 noise = 10
-horizon = 70
+horizon = 30
 num = 300
 mean = [50, 0, -50]
 expected_mean = [50, 0, -50]
 
 np.random.seed(42)
 mix_env = np.random.normal(mean[1], variance, 10 * num).reshape(num, 10)
-pos_env = mix_env + 50
-neg_env = mix_env - 50
+pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
+neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
 tot_env = [pos_env, mix_env, neg_env]
+test_env = [np.random.normal(mean[i], variance, 10 * num).reshape(num, 10) for i in range(3)]
 env_name = ['pos', 'mix', 'neg']
 
 strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)']
 
 variables = ['alpha', 'beta', 'lambda', 'mean', 'noise']
 init = {'alpha' : 0.88, 'beta' : 1, 'lambda' : 2.25, 'mean' : 0, 'noise' : 10}
-variable_init = {'generic UCB' : {
-        'beta' : [-10, 10], 'noise' : [0.1, 20.0] 
+variable_init = {
+    'generic UCB' : {
+        'beta' : [0, 10], 'noise' : [0.1, 20.0] 
     },
     'relative prospect UCB' : { 
-        'alpha' : [0.1, 3.0], 'beta' : [-10, 10], 'lambda' : [1.0, 10.0], 'noise' : [0.1, 20.0]   
+        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
     },
     'prospect UCB' : { 
-        'alpha' : [0.1, 3.0], 'beta' : [-10, 10], 'lambda' : [1.0, 10.0], 'noise' : [0.1, 20.0]   
+        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
     },
     'relative prospect UCB (inner)' : { 
-        'alpha' : [0.1, 3.0], 'beta' : [-10, 10], 'lambda' : [1.0, 10.0], 'noise' : [0.1, 20.0]   
-    }
+        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
+    },
 }
 
 ex = mix_env[0, :]
