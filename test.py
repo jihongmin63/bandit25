@@ -89,6 +89,22 @@ for e in range(3) :
     'capthick': 1.5,
     'linestyle': '--'
 })
+    
+    for i, val in enumerate(data):
+        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
+
+    offset = 15
+    current_height = max(data) + 10
+
+    for count, (i, j) in enumerate(itertools.combinations(range(4), 2)):
+        t_stat, p_val = ttest_ind(tot_r[e][i], tot_r[e][j], equal_var=False)
+        #print(f"Env: {env_name[e]}, Comparing {strategy[i]} vs {strategy[j]} -> p = {p_val:.4f}")
+        if p_val < 0.05:
+            x1, x2 = i, j
+            y = current_height + offset * count
+            plt.plot([x1, x1, x2, x2], [y - 2, y, y, y - 2], lw=1.5, c='k')  # 수평선
+            plt.text((x1 + x2) / 2, y, "*", ha='center', va='bottom', color='red', fontsize=14)
+
     plt.xlabel("Trial")
     plt.xticks([i for i in range(4)], strategy)
     plt.yticks([100 * i for i in range(1, 6)])
