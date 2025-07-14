@@ -23,13 +23,13 @@ def prospect(x, alpha, lam):
     
 def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
     if (option == 0) : # generic UCB
-        return np.argmax(mean + beta * variance)
+        return mean + beta * variance
     elif (option == 1) : # relatvie prospect UCB
-        return np.argmax(prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance)
+        return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance
     elif (option == 2) : # prospect UCB
-        return np.argmax(prospect(mean, alpha=alpha, lam=lam) + beta * variance)
+        return prospect(mean, alpha=alpha, lam=lam) + beta * variance
     elif (option == 3) : # relative prospect UCB (inner)
-        return np.argmax(prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam))
+        return prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)
  
     return 0
 
@@ -44,7 +44,7 @@ def simulate(variables, option, env) :
     sigma_0 = noise
 
     for t in range(horizon):
-        action = get_action(mu_post, sigma_post, option, result, alpha = alpha, beta = beta, lam = lam)
+        action = np.argmax(get_action(mu_post, sigma_post, option, result, alpha = alpha, beta = beta, lam = lam))
         reward = select_arm(action, env)
 
         al.append(action)

@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import itertools
 
 variance = 10
 noise = 10
 horizon = 30
-num = 300
+num = 100
 mean = [50, 0, -50]
 expected_mean = [50, 0, -50]
 
@@ -44,3 +45,15 @@ for i in range(10) :
 plt.xticks([i for i in range(10)])
 plt.yticks([])
 plt.savefig('images/sample env.png')
+
+recovery_set = {
+    'alpha' : [0.4, 0.6, 0.8, 1.0, 1.5],
+    'beta' : [0, 1, 2, 3, 5, 7, 9, 10],
+    'lambda' : [0.5, 1.0, 2.0, 3.0],
+    'mu' : [-75, -50, -25, -10, 0, 10, 25, 50, 75],
+    'sigma' : [1, 2, 5, 10, 15],
+    'temperature': [0.1, 0.5, 1.0, 2.0, 5.0]
+}
+
+combination = list(itertools.product(*list(recovery_set.values())))
+#print(len(combination))

@@ -2,14 +2,43 @@ import numpy as np
 import json
 import itertools
 import matplotlib.pyplot as plt
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, pearsonr
 
-from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, init
-from function import prospect, select_arm, get_action, simulate
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, init, recovery_set, combination
+from function import prospect, select_arm, simulate
 
-with open("best_params.json", "r") as f:
-    best_params = json.load(f)
+with open("recovered_params.json", "r") as f:
+    recovered_params = np.array(json.load(f))
 
+for n, name in enumerate(strategy):
+    for k, key in enumerate(recovery_set.keys()):
+        x = [combination[i][k] for i in range(len(combination))]
+        y = [recovered_params[n][i][k] for i in range(len(combination))]
+
+        # 상관계수 계산
+        r, p = pearsonr(x, y)
+
+        plt.figure(figsize=(6, 5))
+        plt.title(f"Parameter Recovery of {key} on {name}")
+        plt.scatter(x, y, alpha=0.1, s=2, label='Recovered')
+
+        # y = x 대각선
+        min_val, max_val = min(x), max(x)
+        plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='y = x')
+
+        # 상관계수 텍스트 추가
+        plt.text(0.05, 0.95, f"r = {r:.2f}", transform=plt.gca().transAxes,
+                 verticalalignment='top', horizontalalignment='left', fontsize=10)
+
+        # 라벨 및 저장
+        plt.xlabel(f"True {key}")
+        plt.ylabel(f"Recovered {key}")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"images/parameter recovery of {key} on {name}.png")
+        plt.close()
+
+"""
 result_r = [[], [], []] # env * strategy * trial * horizon
 tot_r = [[], [], []] # env * strategy * trial
 switch = [[], [], []] # env * strategy * trial
@@ -170,3 +199,4 @@ plt.grid(True, axis='y')
 plt.legend()
 plt.tight_layout()
 plt.savefig("images/grouped_switch_ratio_with_pvalues.png")
+"""
