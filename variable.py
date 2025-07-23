@@ -19,22 +19,7 @@ env_name = ['pos', 'mix', 'neg']
 
 strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)']
 
-variables = ['alpha', 'beta', 'lambda', 'mean', 'noise']
-init = {'alpha' : 0.88, 'beta' : 1, 'lambda' : 2.25, 'mean' : 0, 'noise' : 10}
-variable_init = {
-    'generic UCB' : {
-        'beta' : [0, 10], 'noise' : [0.1, 20.0] 
-    },
-    'relative prospect UCB' : { 
-        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
-    },
-    'prospect UCB' : { 
-        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
-    },
-    'relative prospect UCB (inner)' : { 
-        'beta' : [0, 10], 'noise' : [0.1, 20.0]   
-    },
-}
+variables = ['alpha', 'beta', 'lambda', 'mean', 'noise', 'temp']
 
 ex = mix_env[0, :]
 plt.figure(figsize=(5, 2))
@@ -48,11 +33,11 @@ plt.savefig('images/sample env.png')
 
 recovery_set = {
     'alpha' : [0.4, 0.6, 0.8, 1.0, 1.5],
-    'beta' : [0, 1, 2, 3, 5, 7, 9, 10],
+    'beta' : [0, 1, 2, 5, 7, 10],
     'lambda' : [0.5, 1.0, 2.0, 3.0],
-    'mu' : [-75, -50, -25, -10, 0, 10, 25, 50, 75],
+    'mu' : [-50, -25, -10, 0, 10, 25, 50],
     'sigma' : [1, 2, 5, 10, 15],
-    'temperature': [0.1, 0.5, 1.0, 2.0, 5.0]
+    'temperature': [0.1, 0.5, 1.0, 5.0]
 }
 
 combination = list(itertools.product(*list(recovery_set.values())))

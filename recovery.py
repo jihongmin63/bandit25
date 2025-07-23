@@ -6,7 +6,7 @@ import itertools
 import json
 from tqdm import tqdm
 
-from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, init, combination
+from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, combination
 from function import prospect, select_arm, get_action, simulate
 
 def cross_entropy_loss(params, actions, rewards, envs, option) :
@@ -52,8 +52,8 @@ for s, name in enumerate(strategy) :
             actions.append(a)
             rewards.append(r)
 
-        initial_params = [1.0, 1.0, 1.0, 0, 10.0, 0.1]
-        bounds = [(0.1, 2.0), (0, None), (0, None), (-100, 100), (0.1, 20), (0.01, 10)]
+        initial_params = [1.0, 1.0, 1.0, 0, 10.0, 0.1] # 'alpha', 'beta', 'lambda', 'mean', 'noise', 'temp'
+        bounds = [(0.1, 2.0), (0, None), (0, None), (-100, 100), (0.1, 20), (0.01, 10)] 
 
         result = minimize(cross_entropy_loss, initial_params,
                           args = (actions, rewards, envs, s),
@@ -62,6 +62,6 @@ for s, name in enumerate(strategy) :
                           )
 
         recovered_params[s].append(result.x.tolist())
-
-with open("recovered_params.json", "w") as f:
-    json.dump(recovered_params, f, indent=4)
+    
+    with open("recovered_params_"+name+".json", "w") as f:
+        json.dump(recovered_params, f, indent=4)

@@ -34,7 +34,7 @@ def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
     return 0
 
 def simulate(variables, option, env) :
-    alpha, beta, lam, mean, noise = variables[0], variables[1], variables[2], variables[3], variables[4]
+    alpha, beta, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5]
     
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
@@ -44,7 +44,11 @@ def simulate(variables, option, env) :
     sigma_0 = noise
 
     for t in range(horizon):
-        action = np.argmax(get_action(mu_post, sigma_post, option, result, alpha = alpha, beta = beta, lam = lam))
+        values = get_action(mu_post, sigma_post, option, result, alpha = alpha, beta = beta, lam = lam)
+        values = values / temp
+        values = np.exp(values - np.max(values))
+        values = values / np.sum(values)
+        action = np.random.choice(len(values), p=values)
         reward = select_arm(action, env)
 
         al.append(action)
