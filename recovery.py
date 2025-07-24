@@ -63,5 +63,5 @@ for s, name in enumerate(strategy) :
 
         recovered_params[s].append(result.x.tolist())
     
-    with open("recovered_params_"+name+".json", "w") as f:
-        json.dump(recovered_params, f, indent=4)
+with open("params/recovered_params.json", "w") as f:
+    json.dump(recovered_params, f, indent=4)

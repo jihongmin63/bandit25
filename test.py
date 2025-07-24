@@ -2,18 +2,19 @@ import numpy as np
 import json
 import itertools
 import matplotlib.pyplot as plt
-from scipy.stats import ttest_ind, pearsonr
+from scipy.stats import ttest_ind, pearsonr, sem
 
-from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, init, recovery_set, combination
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies
 from function import prospect, select_arm, simulate
 
-with open("recovered_params.json", "r") as f:
+with open("params/recovered_params.json", "r") as f:
     recovered_params = np.array(json.load(f))
-with open("simulated_rewards_"+name+".json", "r") as f:
+with open("params/simulated_rewards_over_strategies.json", "r") as f:
     tot_rewards = np.array(json.load(f))
-with open("simulated_switchs_"+name+".json", "r") as f:
+with open("params/simulated_switchs_over_strategies.json", "r") as f:
     tot_switchs = np.array(json.load(f)) # strategy x env x var
 
+"""
 for n, name in enumerate(strategy):
     for k, key in enumerate(recovery_set.keys()):
         x = [combination[i][k] for i in range(len(combination))]
@@ -37,63 +38,58 @@ for n, name in enumerate(strategy):
         plt.tight_layout()
         plt.savefig(f"images/parameter recovery of {key} on {name}.png")
         plt.close()
+"""
 
+mu_values = recovery_set['mean']
+lambda_values = recovery_set['lambda']
 
-# 필요한 것
-# mu 전체 기반 lambda vs switch rate over envs
-# 특정 mu에 대해 반복
-# mu x lambda x env x sws
-
-mu_values = recovered_params['mu']
-lambda_values = recovered_params['lambda']
-n_envs = 3
-n_strategies = len(strategies)
-
-# 인덱스: [strategy][mu][lambda][env] → list of switch rates
-switchs_arranged = [[[[[] for _ in range(n_envs)]
-                      for _ in range(len(lambda_values))]
-                     for _ in range(len(mu_values))]
-                    for _ in range(n_strategies))]
-
-# 미리 인덱스: [mu][lambda] → combination index list
-indices = [[[i for i, c in enumerate(combination)
+indices = [[[[i for i, c in enumerate(combinations[name])
              if c[3] == mu and c[2] == lamb]
             for lamb in lambda_values]
-           for mu in mu_values]
+           for mu in mu_values] for s, name in enumerate(n_strategies)]
 
-# 데이터 채우기
-for s in range(n_strategies):
-    for e in range(n_envs):
-        for i, mu in enumerate(mu_values):
-            for j, lamb in enumerate(lambda_values):
-                for idx in indices[i][j]:
-                    switchs_arranged[s][i][j][e].append(tot_switchs[s][e][idx])
+switchs_arranged = [[[[np.concatenate(tot_switchs[s][e][indices[s][i][j]]) for e in range(n_envs)] # strategy x mu x lambda x env
+                      for j in range(len(lambda_values))]
+                     for i in range(len(mu_values))]
+                    for s in range(n_strategies)]  
+         
+for s, strat_name in enumerate(strategy):
+    plt.figure(figsize=(6, 5))
 
-for s, strat_name in enumerate(strategies):
-    fig, axes = plt.subplots(1, len(mu_values), figsize=(4 * len(mu_values), 4), sharey=True)
-    axes = axes.flatten()
+    for e in range(n_envs) :
+        means = []
+        lower_err = []
+        upper_err = []
+        if e == 0 :
+            i = 6
+        elif e == 1 :
+            i = 3
+        elif e == 2 :
+            i = 0
 
-    for i, mu in enumerate(mu_values):
-        ax = axes[i]
-        for e in range(n_envs):
-            means = []
-            for j, lamb in enumerate(lambda_values):
-                vals = switchs_arranged[s][i][j][e]
-                mean_val = np.mean(vals) if len(vals) > 0 else np.nan
+        for j, lamb in enumerate(lambda_values):
+            vals = switchs_arranged[s][i][j][e]
+
+            if len(vals) > 0:
+                mean_val = np.mean(vals)
+                q1 = np.percentile(vals, 25)
+                q3 = np.percentile(vals, 75)
+
                 means.append(mean_val)
-            ax.plot(lambda_values, means, marker='o', label=f'env {e}')
+                lower_err.append(mean_val - q1)
+                upper_err.append(q3 - mean_val)
+        
+        yerr = np.array([lower_err, upper_err])
+        plt.errorbar(lambda_values, means, yerr=yerr, marker='o', capsize=4, label=f"{env_name[e]} on mu = {recovery_set['mean'][i]}")
 
-        ax.set_title(f'{strat_name}, mu={mu}')
-        ax.set_xlabel('Lambda')
-        if i == 0:
-            ax.set_ylabel('Switch Rate')
-        ax.grid(True)
-        ax.legend()
+    plt.xlabel('Lambda')
+    plt.ylabel('Switch rate')
+    plt.grid(True)
+    plt.legend()
 
     plt.suptitle(f'Strategy: {strat_name}', fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig(f"Switch rate over lambda, mu, env on {strat_name}")
-
+    plt.savefig(f"images/Selected switch rate simulation on {strat_name}")
 
 """
 result_r = [[], [], []] # env * strategy * trial * horizon

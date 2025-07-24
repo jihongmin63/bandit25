@@ -21,7 +21,7 @@ def prospect(x, alpha, lam):
 
         return util
     
-def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
+def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=2.25) :
     if (option == 0) : # generic UCB
         return mean + beta * variance
     elif (option == 1) : # relatvie prospect UCB
@@ -30,11 +30,28 @@ def get_action(mean, variance, option, result, alpha=0.88, beta = 1, lam=2.25) :
         return prospect(mean, alpha=alpha, lam=lam) + beta * variance
     elif (option == 3) : # relative prospect UCB (inner)
         return prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)
- 
+    else:
+        sigma = np.where(mean > 0, beta * variance / 2, beta2 * variance / 2) + np.where(mean < 0, beta2 * variance / 2, beta * variance / 2)
+        if (option == 4) : # seperation of sigma
+            return mean + sigma
+        elif (option == 5) :
+            return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + sigma
+        elif (option == 6) :
+            return prospect(mean, alpha=alpha, lam=lam) + sigma
+        elif (option == 7) :
+            return prospect(mean + sigma + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)             
     return 0
 
 def simulate(variables, option, env) :
-    alpha, beta, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5]
+    alpha, beta, beta2, lam = 1, 1, 1, 1
+    if len(variables) == 4 :
+        beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
+    elif len(variables) == 5:
+        beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
+    elif len(variables) == 6:
+        alpha, beta, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5]
+    elif len(variables) == 7:
+        alpha, beta, beta2, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5], variables[6]
     
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
@@ -44,7 +61,7 @@ def simulate(variables, option, env) :
     sigma_0 = noise
 
     for t in range(horizon):
-        values = get_action(mu_post, sigma_post, option, result, alpha = alpha, beta = beta, lam = lam)
+        values = get_action(mu_post, sigma_post, option, result, alpha=alpha, beta=beta, beta2=beta2, lam=lam)
         values = values / temp
         values = np.exp(values - np.max(values))
         values = values / np.sum(values)
