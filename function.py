@@ -1,10 +1,31 @@
 import numpy as np
 from variable import noise, horizon
 
-def select_arm(n, env) : # select bandit w/ noise
+def select_arm(n, env) :
+    """
+        Args:
+            n (int) : the index of arm
+            env (int array) : means of arms
+
+        Returns:
+            (float) : the output of selected arm w/ noise
+
+    """
     return env[n] + np.random.normal(0, noise)
 
 def prospect(x, alpha, lam):
+    """
+        It is utility function that modify the original value
+
+        Args:
+            x (int or numpy array) : the value that should be modified
+            alpha (float) : risk averse parameter
+            lam (float) : loss averse parameter
+        
+        Returns:
+            util (int or numpy array) : the modified value 
+    """
+
     if isinstance(x, (float, int)):
         if x >= 0:
             return  np.power(x, alpha)
@@ -22,6 +43,21 @@ def prospect(x, alpha, lam):
         return util
     
 def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=2.25) :
+    """
+        the function calculating values according to different strategies
+
+        Args:
+            mean (numpy array) : estimated mean for bandits
+            variance (numpy array) : estimated variance for bandits
+            option (int) : index for strategy
+            result (int) : accmulated reward
+
+            alpha, beta, beta2, lam (int) : parameters required for specific strategy
+
+        Returns:
+            (numpy array) : calculated value
+    """
+
     if (option == 0) : # generic UCB
         return mean + beta * variance
     elif (option == 1) : # relatvie prospect UCB
@@ -43,6 +79,21 @@ def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=
     return 0
 
 def simulate(variables, option, env) :
+    """
+        the function simulating agent's behavior on given strategy and environment
+
+        Args:
+            varaibles (float array) : variables required for the given strategy
+            option (int) : index of strategy
+            env (numpy array) : mean of bandits
+        
+        Returns:
+            al (int array) : the indexes of selected bandits
+            rl (float array) : the rewards of selected bandits
+            result (float) : accumulated reward
+            switch (float) : switch rate over trail
+    """
+
     alpha, beta, beta2, lam = 1, 1, 1, 1
     if len(variables) == 4 :
         beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
