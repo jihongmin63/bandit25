@@ -60,15 +60,15 @@ def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=
 
     if (option == 0) : # generic UCB
         return mean + beta * variance
-    elif (option == 1) : # relatvie prospect UCB
+    elif (option == 2) : # relatvie prospect UCB
         return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance
-    elif (option == 2) : # prospect UCB
+    elif (option == 3) : # prospect UCB
         return prospect(mean, alpha=alpha, lam=lam) + beta * variance
-    elif (option == 3) : # relative prospect UCB (inner)
+    elif (option == 4) : # relative prospect UCB (inner)
         return prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)
     else:
         sigma = np.where(mean > 0, beta * variance / 2, beta2 * variance / 2) + np.where(mean < 0, beta2 * variance / 2, beta * variance / 2)
-        if (option == 4) : # seperation of sigma
+        if (option == 1) : # seperation of sigma
             return mean + sigma
         elif (option == 5) :
             return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + sigma
@@ -107,8 +107,8 @@ def simulate(variables, option, env) :
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
 
-    mu_post = np.array([mean for i in range(10)])
-    sigma_post = np.array([noise for i in range(10)])
+    mu_post = np.array([mean for i in range(10)], dtype=float)
+    sigma_post = np.array([noise for i in range(10)], dtype=float)
     sigma_0 = noise
 
     for t in range(horizon):

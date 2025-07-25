@@ -18,7 +18,7 @@ tot_env = [pos_env, mix_env, neg_env]
 test_env = [np.random.normal(mean[i], variance, 10 * num).reshape(num, 10) for i in range(3)]
 env_name = ['pos', 'mix', 'neg']
 
-strategy = ['generic UCB', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)', 'generic UCB w/ seperation', 'relative prospect UCB w/ seperation', 'prospect UCB w/ seperation', 'relative prospect UCB (inner) w/ seperation']
+strategy = ['generic UCB', 'generic UCB w/ seperation', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)', 'relative prospect UCB w/ seperation', 'prospect UCB w/ seperation', 'relative prospect UCB (inner) w/ seperation']
 st_varaible = {
    'generic UCB' : ['beta', 'mean', 'noise', 'temp'],
    'relative prospect UCB' : ['alpha', 'beta', 'lambda', 'mean', 'noise', 'temp'],
