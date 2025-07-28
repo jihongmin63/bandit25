@@ -55,6 +55,8 @@ recovery_range = {
     'temp' : [0.01, 10]
 }
 
+n_recovery = 1000
+
 combinations = {}
 for name in strategy :
     params_set = {}

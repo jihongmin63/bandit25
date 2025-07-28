@@ -4,7 +4,7 @@ import itertools
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, pearsonr, sem
 
-from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies, st_varaible
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies, st_varaible, recovery_range, n_recovery
 from function import prospect, select_arm, simulate
 
 
@@ -17,8 +17,8 @@ for s, name in enumerate(strategy):
         continue
     
     for k, key in enumerate(st_varaible[name]):
-        x = [params[i][k] for i in range(100)]
-        y = [recovereds[i][k] for i in range(100)]
+        x = [params[i][k] for i in range(n_recovery)]
+        y = [recovereds[i][k] for i in range(n_recovery)]
 
         r, p = pearsonr(x, y)
 
