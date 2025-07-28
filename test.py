@@ -8,46 +8,41 @@ from variable import variance, noise, horizon, num, mean, expected_mean, test_en
 from function import prospect, select_arm, simulate
 
 
-for n, name in enumerate(strategy):
+for s, name in enumerate(strategy):
     try:
         with open(f"params/recovered_params_{name}_optuna.json", "r") as f:
-            recovered_params = np.array(json.load(f))
+            params, recovereds = np.array(json.load(f))
     except FileNotFoundError:
         print(f"{name} is not recovered")
         continue
     
     for k, key in enumerate(st_varaible[name]):
-        x = [combinations[name][i][k] for i in range(len(combinations[name]))]
-        y = [recovered_params[i][k] for i in range(len(combinations[name]))]
+        x = [params[i][k] for i in range(100)]
+        y = [recovereds[i][k] for i in range(100)]
 
         r, p = pearsonr(x, y)
 
         plt.figure(figsize=(6, 5))
         plt.title(f"Parameter Recovery of {key} on {name}")
 
-        # Heatmap with white-red colormap
         plt.hist2d(x, y, bins=50, cmap="Reds")
         plt.colorbar(label="Density")
 
-        # Diagonal line y = x
-        min_val = min(min(x), min(y))
-        max_val = max(max(x), max(y))
-        plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='y = x')
+        plt.plot([recovery_range[key][0], recovery_range[key][1]], [recovery_range[key][0], recovery_range[key][1]], 'r--', label='y = x')
 
-        # Correlation coefficient text
         plt.text(0.05, 0.95, f"r = {r:.2f}", transform=plt.gca().transAxes,
                  verticalalignment='top', horizontalalignment='left', fontsize=10)
 
         plt.xlabel(f"True {key}")
         plt.ylabel(f"Recovered {key}")
 
-        # Fix legend position
         plt.legend(loc="lower right")
 
         plt.tight_layout()
-        plt.savefig(f"images/recovery/parameter recovery of {key} on {name}.png")
+        plt.savefig(f"images/recovery/{name}/parameter recovery of {key} on {name}.png")
         plt.close()
 
+"""
 print("hello")
 with open("params/simulated_switchs_over_strategies.json", "r") as f:
     tot_switchs = json.load(f) # strategy x env x combinations
@@ -77,7 +72,7 @@ plt.xticks(range(n_envs), [env_name[i] for i in range(n_envs)])
 plt.ylabel("Switch Ratio")
 plt.tight_layout()
 plt.savefig("prospect UCB w separation exploration (1, 10).png")
-
+"""
 
 """
 indices = [[[

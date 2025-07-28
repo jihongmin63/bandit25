@@ -2,9 +2,8 @@ import numpy as np
 import json
 import optuna
 from tqdm import tqdm
-from multiprocessing import Pool, set_start_method, cpu_count
 
-from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, combinations, st_varaible
+from variable import variance, noise, horizon, num, mean, expected_mean, tot_env, env_name, strategy, variables, st_varaible, recovery_range
 from function import prospect, select_arm, get_action, simulate
 
 optuna.logging.set_verbosity(optuna.logging.ERROR)
@@ -83,8 +82,7 @@ def build_objective(actions, rewards, envs, s, var_len):
     return objective
 
 
-def process_single_var(args):
-    var, s, name, envs = args
+def process_single_var(var, s, name, envs):
     actions, rewards = [], []
     for env in envs:
         a, r, _, _ = simulate(var, s, env)
@@ -104,16 +102,19 @@ def process_single_var(args):
 
 
 if __name__ == "__main__":
-    set_start_method("spawn", force=True)
     envs = tot_env[1]
-    strategy_seperate = [strategy[6], strategy[7]]
-    for s, name in enumerate(strategy_seperate):
+    for s, name in enumerate(strategy):
         print(f"[{name}]")
+        
+        params, results = [], []
+        for i in tqdm(range(100)) :
+            param = []
+            for var_name in st_varaible[name] :
+                param.append(np.random.normal(recovery_range[var_name][0], recovery_range[var_name][1], 1)[0])
+            params.append(param)
 
-        args_list = [(var, s, name, envs) for var in combinations[name]]
-
-        with Pool(processes=cpu_count()) as pool:
-            results = list(tqdm(pool.imap_unordered(process_single_var, args_list), total=len(args_list)))
+            result = process_single_var(param, s, name, envs)
+            results.append(result)
 
         with open(f"params/recovered_params_{name}_optuna.json", "w") as f:
-            json.dump(results, f, indent=4)
+            json.dump([params, results], f, indent=4)

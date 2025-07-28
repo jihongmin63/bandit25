@@ -45,6 +45,16 @@ recovery_set = {
     'temp': [0.1, 0.5, 1.0, 5.0],
 }
 
+recovery_range = {
+    'alpha' : [0.1, 2.0],
+    'beta' : [0, 10],
+    'beta2' : [0, 10],
+    'lambda' : [0, 10],
+    'mean' : [-100, 100],
+    'noise' : [0.1, 20],
+    'temp' : [0.01, 10]
+}
+
 combinations = {}
 for name in strategy :
     params_set = {}
