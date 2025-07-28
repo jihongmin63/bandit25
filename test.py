@@ -4,67 +4,110 @@ import itertools
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, pearsonr, sem
 
-from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies, st_varaible
 from function import prospect, select_arm, simulate
 
-with open("params/recovered_params.json", "r") as f:
-    recovered_params = np.array(json.load(f))
-with open("params/simulated_rewards_over_strategies.json", "r") as f:
-    tot_rewards = np.array(json.load(f))
-with open("params/simulated_switchs_over_strategies.json", "r") as f:
-    tot_switchs = np.array(json.load(f)) # strategy x env x var
 
-"""
 for n, name in enumerate(strategy):
-    for k, key in enumerate(recovery_set.keys()):
-        x = [combination[i][k] for i in range(len(combination))]
-        y = [recovered_params[n][i][k] for i in range(len(combination))]
+    try:
+        with open(f"params/recovered_params_{name}_optuna.json", "r") as f:
+            recovered_params = np.array(json.load(f))
+    except FileNotFoundError:
+        print(f"{name} is not recovered")
+        continue
+    
+    for k, key in enumerate(st_varaible[name]):
+        x = [combinations[name][i][k] for i in range(len(combinations[name]))]
+        y = [recovered_params[i][k] for i in range(len(combinations[name]))]
 
         r, p = pearsonr(x, y)
 
         plt.figure(figsize=(6, 5))
         plt.title(f"Parameter Recovery of {key} on {name}")
-        plt.scatter(x, y, alpha=0.1, s=2, label='Recovered')
 
-        min_val, max_val = min(x), max(x)
+        # Heatmap with white-red colormap
+        plt.hist2d(x, y, bins=50, cmap="Reds")
+        plt.colorbar(label="Density")
+
+        # Diagonal line y = x
+        min_val = min(min(x), min(y))
+        max_val = max(max(x), max(y))
         plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='y = x')
 
+        # Correlation coefficient text
         plt.text(0.05, 0.95, f"r = {r:.2f}", transform=plt.gca().transAxes,
                  verticalalignment='top', horizontalalignment='left', fontsize=10)
 
         plt.xlabel(f"True {key}")
         plt.ylabel(f"Recovered {key}")
-        plt.legend()
+
+        # Fix legend position
+        plt.legend(loc="lower right")
+
         plt.tight_layout()
-        plt.savefig(f"images/parameter recovery of {key} on {name}.png")
+        plt.savefig(f"images/recovery/parameter recovery of {key} on {name}.png")
         plt.close()
+
+print("hello")
+with open("params/simulated_switchs_over_strategies.json", "r") as f:
+    tot_switchs = json.load(f) # strategy x env x combinations
+
+s, name = 6, strategy[6]
+
+# 각 환경에 대해 평균과 SEM 계산
+means = []
+yerr_lower = []
+yerr_upper = []
+
+for i in range(n_envs):
+    vals = [np.mean(rep) for rep in tot_switchs[s][i]]
+    m = np.mean(vals)
+    e = sem(vals)
+    means.append(m)
+    yerr_lower.append(e)   # 또는 다른 값
+    yerr_upper.append(e)   # 또는 다르게 조정
+
+# 2xN 배열로 구성
+yerr = np.array([yerr_lower, yerr_upper])
+
+# 시각화
+plt.figure(figsize=(6, 5))
+plt.bar(range(n_envs), means, yerr=yerr, capsize=5)
+plt.xticks(range(n_envs), [env_name[i] for i in range(n_envs)])
+plt.ylabel("Switch Ratio")
+plt.tight_layout()
+plt.savefig("prospect UCB w separation exploration (1, 10).png")
+
+
 """
+indices = [[[
+    [i for i, c in enumerate(combinations[name]) if c[3] == mu and c[2] == lamb]
+    for lamb in st_varaible[name]['lambda']]
+    for mu in st_varaible[name]['mean']]
+    for s, name in enumerate(strategy)
+]
 
-mu_values = recovery_set['mean']
-lambda_values = recovery_set['lambda']
+switchs_arranged = [[[
+    [np.concatenate([tot_switchs[s][e][k] for k in indices[s][i][j]])
+     for e in range(n_envs)]
+    for j in range(len(st_varaible[name]['lambda']))]
+    for i in range(len(st_varaible[name]['mean']))]
+    for s in range(n_strategies)]
 
-indices = [[[[i for i, c in enumerate(combinations[name])
-             if c[3] == mu and c[2] == lamb]
-            for lamb in lambda_values]
-           for mu in mu_values] for s, name in enumerate(n_strategies)]
 
-switchs_arranged = [[[[np.concatenate(tot_switchs[s][e][indices[s][i][j]]) for e in range(n_envs)] # strategy x mu x lambda x env
-                      for j in range(len(lambda_values))]
-                     for i in range(len(mu_values))]
-                    for s in range(n_strategies)]  
-         
 for s, strat_name in enumerate(strategy):
     plt.figure(figsize=(6, 5))
 
-    for e in range(n_envs) :
+    for e in range(n_envs):
         means = []
         lower_err = []
         upper_err = []
-        if e == 0 :
+
+        if e == 0:
             i = 6
-        elif e == 1 :
+        elif e == 1:
             i = 3
-        elif e == 2 :
+        elif e == 2:
             i = 0
 
         for j, lamb in enumerate(lambda_values):
@@ -78,20 +121,21 @@ for s, strat_name in enumerate(strategy):
                 means.append(mean_val)
                 lower_err.append(mean_val - q1)
                 upper_err.append(q3 - mean_val)
-        
+
         yerr = np.array([lower_err, upper_err])
-        plt.errorbar(lambda_values, means, yerr=yerr, marker='o', capsize=4, label=f"{env_name[e]} on mu = {recovery_set['mean'][i]}")
+        plt.errorbar(lambda_values, means, yerr=yerr, marker='o', capsize=4,
+                     label=f"{env_name[e]} on mu = {recovery_set['mean'][i]}")
 
     plt.xlabel('Lambda')
     plt.ylabel('Switch rate')
     plt.grid(True)
     plt.legend()
-
     plt.suptitle(f'Strategy: {strat_name}', fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig(f"images/Selected switch rate simulation on {strat_name}")
+    plt.savefig(f"images/simulation/Selected switch rate simulation on {strat_name}")
+    plt.close()
 
-"""
+
 result_r = [[], [], []] # env * strategy * trial * horizon
 tot_r = [[], [], []] # env * strategy * trial
 switch = [[], [], []] # env * strategy * trial

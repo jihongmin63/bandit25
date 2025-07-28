@@ -98,7 +98,7 @@ def simulate(variables, option, env) :
     if len(variables) == 4 :
         beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
     elif len(variables) == 5:
-        beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
+        beta, beta2, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4]
     elif len(variables) == 6:
         alpha, beta, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5]
     elif len(variables) == 7:
