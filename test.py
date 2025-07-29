@@ -9,20 +9,22 @@ from function import prospect, select_arm, simulate
 
 
 for s, name in enumerate(strategy):
+    print(f"[{name}]")
     try:
         with open(f"params/recovered_params_{name}_optuna.json", "r") as f:
-            params, recovereds = np.array(json.load(f))
+            params, recovereds = json.load(f)
     except FileNotFoundError:
         print(f"{name} is not recovered")
         continue
     
+    #print(params[0], recovereds[0])
     for k, key in enumerate(st_varaible[name]):
         x = [params[i][k] for i in range(n_recovery)]
         y = [recovereds[i][k] for i in range(n_recovery)]
 
         r, p = pearsonr(x, y)
 
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(7, 6))
         plt.title(f"Parameter Recovery of {key} on {name}")
 
         plt.hist2d(x, y, bins=50, cmap="Reds")

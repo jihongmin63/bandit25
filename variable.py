@@ -30,7 +30,12 @@ st_varaible = {
    'relative prospect UCB (inner) w seperation' : ['alpha', 'beta', 'beta2', 'lambda', 'mean', 'noise', 'temp']
 }
 
-variables = ['alpha', 'beta', 'lambda', 'mean', 'noise', 'temp']
+variables = {
+    4 : ['beta', 'mean', 'noise', 'temp'],
+    5 : ['beta', 'beta2', 'mean', 'noise', 'temp'],
+    6 : ['alpha', 'beta', 'lambda', 'mean', 'noise', 'temp'],
+    7 : ['alpha', 'beta', 'beta2', 'lambda', 'mean', 'noise', 'temp'],
+}
 
 n_envs = len(tot_env)
 n_strategies = len(strategy)
@@ -50,9 +55,9 @@ recovery_range = {
     'beta' : [0, 10],
     'beta2' : [0, 10],
     'lambda' : [0, 10],
-    'mean' : [-100, 100],
+    'mean' : [-50, 50],
     'noise' : [0.1, 20],
-    'temp' : [0.01, 10]
+    'temp' : [0.1, 5]
 }
 
 n_recovery = 1000

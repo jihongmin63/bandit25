@@ -1,12 +1,16 @@
 import numpy as np
 import json
 import optuna
-from tqdm import tqdm
 from multiprocessing import Pool, set_start_method, cpu_count
+from optuna.samplers import TPESampler
 
-from variable import horizon, tot_env, strategy, st_varaible, recovery_range, n_recovery
+from variable import horizon, tot_env, strategy, st_varaible, recovery_range, n_recovery, variables
 from function import get_action, simulate
 
+import warnings
+from optuna._experimental import ExperimentalWarning
+
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 
 
@@ -47,38 +51,9 @@ def cross_entropy_loss(params, actions, rewards, envs, option):
 
 def build_objective(actions, rewards, envs, s, var_len, initial_params=None):
     def objective(trial):
-        suggest_args = {}
-        if var_len == 4:
-            suggest_args["beta"] = trial.suggest_float("beta", recovery_range["beta"][0], recovery_range["beta"][1])
-            suggest_args["mean"] = trial.suggest_float("mean", recovery_range["mean"][0], recovery_range["mean"][1])
-            suggest_args["noise"] = trial.suggest_float("noise", recovery_range["noise"][0], recovery_range["noise"][1])
-            suggest_args["temp"] = trial.suggest_float("temp", recovery_range["temp"][0], recovery_range["temp"][1])
-            params = [suggest_args["beta"], suggest_args["mean"], suggest_args["noise"], suggest_args["temp"]]
-        elif var_len == 5:
-            suggest_args["beta"] = trial.suggest_float("beta", recovery_range["beta"][0], recovery_range["beta"][1])
-            suggest_args["beta2"] = trial.suggest_float("beta2", recovery_range["beta2"][0], recovery_range["beta2"][1])
-            suggest_args["mean"] = trial.suggest_float("mean", recovery_range["mean"][0], recovery_range["mean"][1])
-            suggest_args["noise"] = trial.suggest_float("noise", recovery_range["noise"][0], recovery_range["noise"][1])
-            suggest_args["temp"] = trial.suggest_float("temp", recovery_range["temp"][0], recovery_range["temp"][1])
-            params = [suggest_args["beta"], suggest_args["beta2"], suggest_args["mean"], suggest_args["noise"], suggest_args["temp"]]
-        elif var_len == 6:
-            suggest_args["alpha"] = trial.suggest_float("alpha", recovery_range["alpha"][0], recovery_range["alpha"][1])
-            suggest_args["beta"] = trial.suggest_float("beta", recovery_range["beta"][0], recovery_range["beta"][1])
-            suggest_args["lambda"] = trial.suggest_float("lambda", recovery_range["lambda"][0], recovery_range["lambda"][1])
-            suggest_args["mean"] = trial.suggest_float("mean", recovery_range["mean"][0], recovery_range["mean"][1])
-            suggest_args["noise"] = trial.suggest_float("noise", recovery_range["noise"][0], recovery_range["noise"][1])
-            suggest_args["temp"] = trial.suggest_float("temp", recovery_range["temp"][0], recovery_range["temp"][1])
-            params = [suggest_args["alpha"], suggest_args["beta"], suggest_args["lambda"], suggest_args["mean"], suggest_args["noise"], suggest_args["temp"]]
-        else: # len(params) == 7
-            suggest_args["alpha"] = trial.suggest_float("alpha", recovery_range["alpha"][0], recovery_range["alpha"][1])
-            suggest_args["beta"] = trial.suggest_float("beta", recovery_range["beta"][0], recovery_range["beta"][1])
-            suggest_args["beta2"] = trial.suggest_float("beta2", recovery_range["beta2"][0], recovery_range["beta2"][1])
-            suggest_args["lambda"] = trial.suggest_float("lambda", recovery_range["lambda"][0], recovery_range["lambda"][1])
-            suggest_args["mean"] = trial.suggest_float("mean", recovery_range["mean"][0], recovery_range["mean"][1])
-            suggest_args["noise"] = trial.suggest_float("noise", recovery_range["noise"][0], recovery_range["noise"][1])
-            suggest_args["temp"] = trial.suggest_float("temp", recovery_range["temp"][0], recovery_range["temp"][1])
-            params = [suggest_args["alpha"], suggest_args["beta"], suggest_args["beta2"], suggest_args["lambda"], suggest_args["mean"], suggest_args["noise"], suggest_args["temp"]]
-
+        params = []
+        for key in variables[var_len] :
+            params.append(trial.suggest_float(key, recovery_range[key][0], recovery_range[key][1]))
         return cross_entropy_loss(params, actions, rewards, envs, s)
 
     return objective
@@ -94,9 +69,10 @@ def process_single_run(args):
 
     var_len = len(initial_param)
     objective = build_objective(actions, rewards, envs, s, var_len)
-
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=200, n_jobs=1, show_progress_bar=False)
+    
+    sampler = TPESampler(multivariate=True)
+    study = optuna.create_study(direction="minimize", sampler=sampler)
+    study.optimize(objective, n_trials=400, n_jobs=1, show_progress_bar=False)
 
     best_params = study.best_params
     ordered = [best_params[k] for k in st_varaible[name]]
@@ -109,7 +85,7 @@ if __name__ == "__main__":
     envs = tot_env[1]
     
     for s, name in enumerate(strategy): 
-        print(f"[{name}]")
+        print(f"[{name} is currently working", end = " ")
 
         initial_params_list = []
         for _ in range(n_recovery):
@@ -121,7 +97,13 @@ if __name__ == "__main__":
         args_list = [(param, s, name, envs) for param in initial_params_list]
 
         with Pool(processes=cpu_count()) as pool:
-            recovered_results = list(tqdm(pool.imap_unordered(process_single_run, args_list), total=len(args_list)))
+            result_iter = pool.imap(process_single_run, args_list)
+            recovered_results = []
+
+            for res in result_iter:
+                recovered_results.append(res)
 
         with open(f"params/recovered_params_{name}_optuna.json", "w") as f:
             json.dump([initial_params_list, recovered_results], f, indent=4)
+        
+        print("- finished]")

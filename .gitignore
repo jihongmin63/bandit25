@@ -1,6 +1,5 @@
 params/simulated_rewards_over_strategies.json
 params/simulated_switchs_over_strategies.json
-params/recovered_params.json
 
 params/recovered_params_generic UCB_optuna.json
 params/recovered_params_generic UCB w seperation_optuna.json
