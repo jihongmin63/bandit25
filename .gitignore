@@ -6,6 +6,15 @@ params/parameter_recovery/recovered_params_generic UCB w seperation_optuna.json
 params/parameter_recovery/recovered_params_relative prospect UCB_optuna.json
 params/parameter_recovery/recovered_params_prospect UCB_optuna.json
 params/parameter_recovery/recovered_params_relative prospect UCB (inner)_optuna.json
-params/parameter_recovery/recovered_params_relative prospect UCB w seperation.json
+params/parameter_recovery/recovered_params_relative prospect UCB w seperation_optuna.json
 params/parameter_recovery/recovered_params_prospect UCB w seperation_optuna.json
 params/parameter_recovery/recovered_params_relative prospect UCB (inner) w seperation_optuna.json
+
+params/parameter_recovery/recovered_switchs_generic UCB_optuna.json
+params/parameter_recovery/recovered_switchs_generic UCB w seperation_optuna.json
+params/parameter_recovery/recovered_switchs_relative prospect UCB_optuna.json
+params/parameter_recovery/recovered_switchs_prospect UCB_optuna.json
+params/parameter_recovery/recovered_switchs_relative prospect UCB (inner)_optuna.json
+params/parameter_recovery/recovered_switchs_relative prospect UCB w seperation_optuna.json
+params/parameter_recovery/recovered_switchs_prospect UCB w seperation_optuna.json
+params/parameter_recovery/recovered_switchs_relative prospect UCB (inner) w seperation_optuna.json

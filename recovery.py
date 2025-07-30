@@ -61,11 +61,12 @@ def build_objective(actions, rewards, envs, s, var_len, initial_params=None):
 
 def process_single_run(args):
     initial_param, s, name, envs = args
-    actions, rewards = [], []
+    actions, rewards, switches, recovered_switches = [], [], [], []
     for env in envs:
-        a, r, _, _ = simulate(initial_param, s, env)
+        a, r, _, switch = simulate(initial_param, s, env)
         actions.append(a)
         rewards.append(r)
+        switches.append(switch)
 
     var_len = len(initial_param)
     objective = build_objective(actions, rewards, envs, s, var_len)
@@ -77,7 +78,11 @@ def process_single_run(args):
     best_params = study.best_params
     ordered = [best_params[k] for k in st_varaible[name]]
 
-    return ordered
+    for env in envs:
+        _, _, _, recovered_switch = simulate(ordered, s, env)
+        recovered_switches.append(recovered_switch)
+
+    return ordered, switches, recovered_switches
 
 
 if __name__ == "__main__":
@@ -98,12 +103,17 @@ if __name__ == "__main__":
 
         with Pool(processes=cpu_count()) as pool:
             result_iter = pool.imap(process_single_run, args_list)
-            recovered_results = []
+            recovered_results, initial_switches, recovered_switches = [], [], []
 
-            for res in result_iter:
+            for res, sw, re_sw in result_iter:
                 recovered_results.append(res)
+                initial_switches.append(sw)
+                recovered_switches.append(re_sw)
 
-        with open(f"params/model_recovery/recovered_params_{name}_optuna.json", "w") as f:
+        with open(f"params/parameter_recovery/recovered_params_{name}_optuna.json", "w") as f:
             json.dump([initial_params_list, recovered_results], f, indent=4)
+        with open(f"params/parameter_recovery/recovered_switchs_{name}_optuna.json", "w") as f:
+            json.dump([initial_switches, recovered_switches], f, indent=4)
         
         print("- finished]")
+        print(np.array(initial_switches).shape, np.array(recovered_switches).shape)

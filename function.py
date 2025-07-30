@@ -88,21 +88,21 @@ def simulate(variables, option, env) :
             env (numpy array) : mean of bandits
         
         Returns:
-            al (int array) : the indexes of selected bandits
-            rl (float array) : the rewards of selected bandits
+            action_list (int array) : the indexes of selected bandits
+            reward_list (float array) : the rewards of selected bandits
             result (float) : accumulated reward
-            switch (float) : switch rate over trail
+            switch (float) : switch rate over trial
     """
 
     alpha, beta, beta2, lam = 1, 1, 1, 1
     if len(variables) == 4 :
-        beta, mean, noise, temp = variables[0], variables[1], variables[2], variables[3]
+        beta, mean, noise, temp = variables
     elif len(variables) == 5:
-        beta, beta2, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4]
+        beta, beta2, mean, noise, temp = variables
     elif len(variables) == 6:
-        alpha, beta, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5]
+        alpha, beta, lam, mean, noise, temp = variables
     elif len(variables) == 7:
-        alpha, beta, beta2, lam, mean, noise, temp = variables[0], variables[1], variables[2], variables[3], variables[4], variables[5], variables[6]
+        alpha, beta, beta2, lam, mean, noise, temp = variables
     
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0

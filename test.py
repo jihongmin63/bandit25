@@ -1,21 +1,55 @@
 import numpy as np
 import json
+import seaborn as sns
 import itertools
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, pearsonr, sem
 
-from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies, st_varaible, recovery_range, n_recovery
+from variable import variance, noise, horizon, num, mean, expected_mean, test_env, env_name, strategy, variables, recovery_set, combinations, n_envs, n_strategies, st_varaible, recovery_range, n_recovery, tot_env
 from function import prospect, select_arm, simulate
 
+def behavior_data(parameter, recovered_parameter, s) :
+    envs = tot_env[1]
+    num_max_bandit, num_used_bandit = [], []
+    recovered_num_max_bandit, recovered_num_used_bandit = [], []
 
+    for env in envs :
+        max_idx = np.argmax(env)
+        actions_list, _, _, _ = simulate(parameter, s, env)
+        recovered_actions_list, _, _, _ = simulate(recovered_parameter, s, env)
+
+        num_max_bandit.append(np.sum(actions_list == max_idx))
+        recovered_num_max_bandit.append(np.sum(recovered_actions_list == max_idx))
+
+        num_used_bandit.append(len(np.unique(actions_list)))
+        recovered_num_used_bandit.append(len(np.unique(recovered_actions_list)))
+
+    return num_max_bandit, num_used_bandit, recovered_num_max_bandit, recovered_num_used_bandit
+
+num_max_bandits = [[] for i in range(n_strategies)]
+recovered_num_max_bandits = [[] for i in range(n_strategies)]
+
+num_used_bandits = [[] for i in range(n_strategies)]
+recovered_num_used_bandits = [[] for i in range(n_strategies)]
+
+print("<Parameter recovery>")
 for s, name in enumerate(strategy):
-    print(f"[{name}]")
+    print(f"- {name}", end="")
     try:
         with open(f"params/parameter_recovery/recovered_params_{name}_optuna.json", "r") as f:
-            params, recovereds = json.load(f)
+            params, recovered_params = json.load(f)
     except FileNotFoundError:
-        print(f"{name} is not recovered")
+        print(" is not recovered")
         continue
+    
+    for p, rp in tqdm(zip(params, recovered_params), total=len(params)):
+        num_max_bandit, num_used_bandit, recovered_num_max_bandit, recovered_num_used_bandit = behavior_data(p, rp, s)
+        num_max_bandits[s].append(num_max_bandit)
+        recovered_num_max_bandits[s].append(recovered_num_max_bandit)
+
+        num_used_bandits[s].append(num_used_bandit)
+        recovered_num_used_bandits[s].append(recovered_num_used_bandit)
 
     variables = st_varaible[name]
     n_vars = len(variables)
@@ -29,9 +63,9 @@ for s, name in enumerate(strategy):
         if k < n_vars:
             key = variables[k]
             x = [params[i][k] for i in range(n_recovery)]
-            y = [recovereds[i][k] for i in range(n_recovery)]
+            y = [recovered_params[i][k] for i in range(n_recovery)]
 
-            r, _ = pearsonr(x, y)
+            r, p = pearsonr(x, y)
 
             h = ax.hist2d(x, y, bins=50, cmap="Reds")
             fig.colorbar(h[3], ax=ax, label="Density")
@@ -44,7 +78,7 @@ for s, name in enumerate(strategy):
             )
 
             ax.text(
-                0.05, 0.95, f"r = {r:.2f}",
+                0.05, 0.95, f"r, p = {r:.2f}, {p:.2f}",
                 transform=ax.transAxes,
                 verticalalignment='top',
                 horizontalalignment='left',
@@ -62,255 +96,123 @@ for s, name in enumerate(strategy):
     fig.tight_layout(rect=[0, 0, 1, 0.95])
 
     plt.savefig(f"images/recovery/{name}/parameter recovery on {name}.png")
+    print("")
 
 
-"""
-print("hello")
-with open("params/simulated_switchs_over_strategies.json", "r") as f:
-    tot_switchs = json.load(f) # strategy x env x combinations
+print("<Behavioral recovery>")
+for s, name in enumerate(strategy):
+    print(f"- {name}", end = "")
+    try:
+        with open(f"params/parameter_recovery/recovered_switchs_{name}_optuna.json", "r") as f:
+            switchs, recovered_switchs = json.load(f)
+    except FileNotFoundError:
+        print(" is not recovered")
+        continue
+    
+    # switch
+    x = np.concatenate(switchs, axis=0)
+    y = np.concatenate(recovered_switchs, axis=0)
 
-s, name = 6, strategy[6]
+    r, p = pearsonr(x, y)
 
-# 각 환경에 대해 평균과 SEM 계산
-means = []
-yerr_lower = []
-yerr_upper = []
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={"width_ratios": [2, 1]})
 
-for i in range(n_envs):
-    vals = [np.mean(rep) for rep in tot_switchs[s][i]]
-    m = np.mean(vals)
-    e = sem(vals)
-    means.append(m)
-    yerr_lower.append(e)   # 또는 다른 값
-    yerr_upper.append(e)   # 또는 다르게 조정
+    h = ax1.hist2d(x, y, bins=30, cmap="Reds")
+    plt.colorbar(h[3], ax=ax1, label="Density")
 
-# 2xN 배열로 구성
-yerr = np.array([yerr_lower, yerr_upper])
+    ax1.plot([0, 1], [0, 1], 'r--', label='y = x')
+    ax1.text(
+        0.05, 0.95, f"r = {r:.2f}, p = {p:f}",
+        transform=ax1.transAxes,
+        verticalalignment='top',
+        horizontalalignment='left',
+        fontsize=10
+    )
 
-# 시각화
-plt.figure(figsize=(6, 5))
-plt.bar(range(n_envs), means, yerr=yerr, capsize=5)
-plt.xticks(range(n_envs), [env_name[i] for i in range(n_envs)])
-plt.ylabel("Switch Ratio")
-plt.tight_layout()
-plt.savefig("prospect UCB w separation exploration (1, 10).png")
-"""
+    ax1.set_title(f"Switch ratio recovery on {name}", fontsize=14)
+    ax1.set_xlabel("True switch ratio")
+    ax1.set_ylabel("Recovered switch ratio")
+    ax1.legend(loc="lower right")
 
-"""
-indices = [[[
-    [i for i, c in enumerate(combinations[name]) if c[3] == mu and c[2] == lamb]
-    for lamb in st_varaible[name]['lambda']]
-    for mu in st_varaible[name]['mean']]
-    for s, name in enumerate(strategy)
-]
+    ax2.violinplot([x, y])
+    ax2.set_xticks([1, 2])
+    ax2.set_xticklabels(["True", "Recovered"])
+    ax2.set_title("Switch ratio distribution")
+    ax2.set_ylabel("Switch ratio")
 
-switchs_arranged = [[[
-    [np.concatenate([tot_switchs[s][e][k] for k in indices[s][i][j]])
-     for e in range(n_envs)]
-    for j in range(len(st_varaible[name]['lambda']))]
-    for i in range(len(st_varaible[name]['mean']))]
-    for s in range(n_strategies)]
+    plt.tight_layout()
+    plt.savefig(f"images/recovery/{name}/behavior_switch_recovery_on_{name}.png")
+    plt.close()
+    
+    # max bandit
+    x = np.concatenate(num_max_bandits[s], axis=0)
+    y = np.concatenate(recovered_num_max_bandits[s], axis=0)
 
+    r, p = pearsonr(x, y)
 
-for s, strat_name in enumerate(strategy):
-    plt.figure(figsize=(6, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={"width_ratios": [2, 1]})
 
-    for e in range(n_envs):
-        means = []
-        lower_err = []
-        upper_err = []
+    h = ax1.hist2d(x, y, bins=30, cmap="Reds")
+    plt.colorbar(h[3], ax=ax1, label="Density")
 
-        if e == 0:
-            i = 6
-        elif e == 1:
-            i = 3
-        elif e == 2:
-            i = 0
+    ax1.plot([0, horizon], [0, horizon], 'r--', label='y = x')
+    ax1.text(
+        0.05, 0.95, f"r = {r:.2f}, p = {p:f}",
+        transform=ax1.transAxes,
+        verticalalignment='top',
+        horizontalalignment='left',
+        fontsize=10
+    )
 
-        for j, lamb in enumerate(lambda_values):
-            vals = switchs_arranged[s][i][j][e]
+    ax1.set_title(f"# of max bandit selection recovery on {name}", fontsize=14)
+    ax1.set_xlabel("True # of max bandit selection")
+    ax1.set_ylabel("Recovered # of max bandit selection")
+    ax1.legend(loc="lower right")
 
-            if len(vals) > 0:
-                mean_val = np.mean(vals)
-                q1 = np.percentile(vals, 25)
-                q3 = np.percentile(vals, 75)
+    ax2.violinplot([x, y])
+    ax2.set_xticks([1, 2])
+    ax2.set_xticklabels(["True", "Recovered"])
+    ax2.set_title("# of max bandit selection distribution")
+    ax2.set_ylabel("# of max bandit selection")
 
-                means.append(mean_val)
-                lower_err.append(mean_val - q1)
-                upper_err.append(q3 - mean_val)
+    plt.tight_layout()
+    plt.savefig(f"images/recovery/{name}/behavior_maxidx_recovery_on_{name}.png")
+    plt.close()
 
-        yerr = np.array([lower_err, upper_err])
-        plt.errorbar(lambda_values, means, yerr=yerr, marker='o', capsize=4,
-                     label=f"{env_name[e]} on mu = {recovery_set['mean'][i]}")
+    # number of bandits
+    x = np.concatenate(num_used_bandits[s], axis=0)
+    y = np.concatenate(recovered_num_used_bandits[s], axis=0)
 
-    plt.xlabel('Lambda')
-    plt.ylabel('Switch rate')
-    plt.grid(True)
-    plt.legend()
-    plt.suptitle(f'Strategy: {strat_name}', fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig(f"images/simulation/Selected switch rate simulation on {strat_name}")
+    r, p = pearsonr(x, y)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), gridspec_kw={"width_ratios": [2, 1]})
+
+    h = ax1.hist2d(x, y, bins=30, cmap="Reds")
+    plt.colorbar(h[3], ax=ax1, label="Density")
+
+    ax1.plot([0, 10], [0, 10], 'r--', label='y = x')
+    ax1.text(
+        0.05, 0.95, f"r = {r:.2f}, p = {p:f}",
+        transform=ax1.transAxes,
+        verticalalignment='top',
+        horizontalalignment='left',
+        fontsize=10
+    )
+
+    ax1.set_title(f"# of used bandits recovery on {name}", fontsize=14)
+    ax1.set_xlabel("True # of used bandits")
+    ax1.set_ylabel("Recovered # of used bandits")
+    ax1.legend(loc="lower right")
+
+    ax2.violinplot([x, y])
+    ax2.set_xticks([1, 2])
+    ax2.set_xticklabels(["True", "Recovered"])
+    ax2.set_title("# of used bandits distribution")
+    ax2.set_ylabel("Switch ratio")
+
+    plt.tight_layout()
+    plt.savefig(f"images/recovery/{name}/behavior_usedbandit_recovery_on_{name}.png")
     plt.close()
 
 
-result_r = [[], [], []] # env * strategy * trial * horizon
-tot_r = [[], [], []] # env * strategy * trial
-switch = [[], [], []] # env * strategy * trial
-
-for i in range(4):
-    for e in range(3):
-        result_r[e].append([])
-        tot_r[e].append([])
-        switch[e].append([])
-
-    for t in range(num):
-        for e in range(3):       
-            variable = []
-            dic = best_params[strategy[i]]
-
-            for n in variables :
-                if n in dic :
-                    variable.append(dic[n])
-                else :
-                    variable.append(init[n])
-
-            variable[3] = mean[e]
-            env_input = test_env[e][t, :]
-            _, r, total, s = simulate(variable, i, env_input)
-            result_r[e][i].append(np.cumsum(r))
-            tot_r[e][i].append(total)
-            switch[e][i].append(s)
-
-tot_r = np.array(tot_r)
-
-
-# Results
-
-x = [i for i in range(horizon)]
-for e in range(3) :
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    axes[0].set_title('Reward accumulation over strategies, ' + env_name[e])
-    axes[1].set_title('(Relative) Reward accumulation over strategies, ' + env_name[e])
-    for i in range(4) :
-        data = result_r[e][i]
-        axes[0].plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
-        q1 = np.percentile(data, 25, axis = 0)
-        q3 = np.percentile(data, 75, axis = 0)
-        axes[0].fill_between(x, q1, q3, alpha = 0.2)
-
-        relative = np.cumsum(np.ones_like(data) * mean[e], axis = 1)
-        data = data - relative
-        axes[1].plot(x, np.mean(data, axis = 0), linestyle='-', marker='o', label=strategy[i])
-        q1 = np.percentile(data, 25, axis = 0)
-        q3 = np.percentile(data, 75, axis = 0)
-        axes[1].fill_between(x, q1, q3, alpha = 0.2)
-    axes[0].set_xlabel("Trial")
-    axes[0].set_xticks([i*10 for i in range(int(horizon/10))])
-    axes[0].set_ylabel("Accumulated Reward")
-    axes[0].legend()
-    axes[0].grid(True)
-
-    axes[1].set_xlabel("Trial")
-    axes[1].set_xticks([i*10 for i in range(int(horizon/10))])
-    axes[1].set_ylabel("Accumulated Reward")
-    axes[1].legend()
-    axes[1].grid(True)
-
-    plt.tight_layout()
-    plt.savefig('images/reward accumulationm, ' + env_name[e] + '.png')
-
-for e in range(3) :
-    plt.figure(figsize=(9, 5))
-    plt.title('(relative) Reward over strategies, ' + env_name[e])
-    data = np.mean(tot_r[e], axis=1) - mean[e] * horizon
-    q1 = np.percentile(tot_r[e] - mean[e] * horizon, 25, axis=1)
-    q3 = np.percentile(tot_r[e] - mean[e] * horizon, 75, axis=1) 
-    err = np.vstack([data - q1, q3 - data]) 
-    plt.bar([i for i in range(4)], data, yerr = err, width = 0.6, error_kw={
-    'ecolor': 'gray',
-    'capsize': 4,
-    'capthick': 1.5,
-    'linestyle': '--'
-})
-    
-    for i, val in enumerate(data):
-        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
-
-    offset = 15
-    current_height = max(data) + 10
-
-    for count, (i, j) in enumerate(itertools.combinations(range(4), 2)):
-        t_stat, p_val = ttest_ind(tot_r[e][i], tot_r[e][j], equal_var=False)
-        #print(f"Env: {env_name[e]}, Comparing {strategy[i]} vs {strategy[j]} -> p = {p_val:.4f}")
-        if p_val < 0.05:
-            x1, x2 = i, j
-            y = current_height + offset * count
-            plt.plot([x1, x1, x2, x2], [y - 2, y, y, y - 2], lw=1.5, c='k')  # 수평선
-            plt.text((x1 + x2) / 2, y, "*", ha='center', va='bottom', color='red', fontsize=14)
-
-    plt.xlabel("Trial")
-    plt.xticks([i for i in range(4)], strategy)
-    plt.yticks([100 * i for i in range(1, 6)])
-    for i, val in enumerate(data):
-        plt.text(i, val, f"{val:.3f}", ha='center', va='bottom', fontsize=10)
-    plt.ylabel("Reward")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig('images/total reward over strategies, ' + env_name[e] + '.png')
-
-
-bar_width = 0.2
-offsets = [-bar_width, 0, bar_width]
-x = np.array([i for i in range(4)])
-plt.figure(figsize=(10, 6))
-for e in range(3):
-    data = np.mean(switch[e], axis=1)
-    q1 = np.percentile(switch[e], 25, axis=1)
-    q3 = np.percentile(switch[e], 75, axis=1)
-    err = np.vstack([data - q1, q3 - data])
-    
-    plt.bar(
-        x + offsets[e], data, width=bar_width, yerr=err,
-        label=env_name[e],
-        error_kw={'ecolor': 'gray', 'capsize': 4, 'capthick': 1.5, 'linestyle': '--'}
-    )
-    
-    for i in range(4):
-        plt.text(x[i] + offsets[e], data[i] + 0.01, f"{data[i]:.3f}",
-                 ha='center', va='bottom', fontsize=9)
-
-
-pairs = list(itertools.combinations(range(3), 2))
-
-for i in range(4):
-    base = np.max([np.mean(switch[e][i]) + np.std(switch[e][i]) for e in range(3)]) + 0.02
-    
-    for j, (a, b) in enumerate(pairs):
-        stat, pval = ttest_ind(switch[a][i], switch[b][i])
-        
-        if pval < 0.001:
-            label = '***'
-        elif pval < 0.01:
-            label = '**'
-        elif pval < 0.05:
-            label = '*'
-        else:
-            continue
-
-        h = base + 0.03 * j
-        x1 = x[i] + offsets[a]
-        x2 = x[i] + offsets[b]
-        xm = (x1 + x2) / 2
-
-        plt.plot([x1, x1, x2, x2], [h, h+0.003, h+0.003, h], lw=1.2, c='black')
-        plt.text(xm, h + 0.005, label, ha='center', va='bottom', fontsize=10)
-
-plt.xticks(x, strategy)
-plt.xlabel("Strategy")
-plt.ylabel("Switch Ratio")
-plt.title("Switch over strategies by environment")
-plt.grid(True, axis='y')
-plt.legend()
-plt.tight_layout()
-plt.savefig("images/grouped_switch_ratio_with_pvalues.png")
-"""
+    print("")
