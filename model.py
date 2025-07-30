@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
         args_list = [(param, s, name, envs) for param in initial_params_list]
 
-        with Pool(processes=4) as pool:
+        with Pool(processes=8) as pool:
             recovered_results = pool.starmap(process_single_run, args_list)
 
         with open(f"params/model_recovery/recovered_models_{name}_optuna.json", "w") as f:

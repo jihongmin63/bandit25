@@ -103,7 +103,7 @@ if __name__ == "__main__":
             for res in result_iter:
                 recovered_results.append(res)
 
-        with open(f"params/recovered_params_{name}_optuna.json", "w") as f:
+        with open(f"params/model_recovery/recovered_params_{name}_optuna.json", "w") as f:
             json.dump([initial_params_list, recovered_results], f, indent=4)
         
         print("- finished]")

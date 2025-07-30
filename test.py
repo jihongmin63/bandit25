@@ -11,38 +11,58 @@ from function import prospect, select_arm, simulate
 for s, name in enumerate(strategy):
     print(f"[{name}]")
     try:
-        with open(f"params/recovered_params_{name}_optuna.json", "r") as f:
+        with open(f"params/parameter_recovery/recovered_params_{name}_optuna.json", "r") as f:
             params, recovereds = json.load(f)
     except FileNotFoundError:
         print(f"{name} is not recovered")
         continue
-    
-    #print(params[0], recovereds[0])
-    for k, key in enumerate(st_varaible[name]):
-        x = [params[i][k] for i in range(n_recovery)]
-        y = [recovereds[i][k] for i in range(n_recovery)]
 
-        r, p = pearsonr(x, y)
+    variables = st_varaible[name]
+    n_vars = len(variables)
 
-        plt.figure(figsize=(7, 6))
-        plt.title(f"Parameter Recovery of {key} on {name}")
+    n_rows, n_cols = 2, 4
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 5 * n_rows))
+    axes = axes.flatten()
 
-        plt.hist2d(x, y, bins=50, cmap="Reds")
-        plt.colorbar(label="Density")
+    for k in range(n_rows * n_cols):
+        ax = axes[k]
+        if k < n_vars:
+            key = variables[k]
+            x = [params[i][k] for i in range(n_recovery)]
+            y = [recovereds[i][k] for i in range(n_recovery)]
 
-        plt.plot([recovery_range[key][0], recovery_range[key][1]], [recovery_range[key][0], recovery_range[key][1]], 'r--', label='y = x')
+            r, _ = pearsonr(x, y)
 
-        plt.text(0.05, 0.95, f"r = {r:.2f}", transform=plt.gca().transAxes,
-                 verticalalignment='top', horizontalalignment='left', fontsize=10)
+            h = ax.hist2d(x, y, bins=50, cmap="Reds")
+            fig.colorbar(h[3], ax=ax, label="Density")
 
-        plt.xlabel(f"True {key}")
-        plt.ylabel(f"Recovered {key}")
+            ax.plot(
+                [recovery_range[key][0], recovery_range[key][1]],
+                [recovery_range[key][0], recovery_range[key][1]],
+                'r--',
+                label='y = x'
+            )
 
-        plt.legend(loc="lower right")
+            ax.text(
+                0.05, 0.95, f"r = {r:.2f}",
+                transform=ax.transAxes,
+                verticalalignment='top',
+                horizontalalignment='left',
+                fontsize=10
+            )
 
-        plt.tight_layout()
-        plt.savefig(f"images/recovery/{name}/parameter recovery of {key} on {name}.png")
-        plt.close()
+            ax.set_title(f"{key}", fontsize=14)
+            ax.set_xlabel(f"True {key}")
+            ax.set_ylabel(f"Recovered {key}")
+            ax.legend(loc="lower right")
+        else:
+            ax.axis("off")
+
+    fig.suptitle(f"Parameter Recovery on {name}", fontsize=18)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+
+    plt.savefig(f"images/recovery/{name}/parameter recovery on {name}.png")
+
 
 """
 print("hello")

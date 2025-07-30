@@ -1,11 +1,11 @@
 params/simulated_rewards_over_strategies.json
 params/simulated_switchs_over_strategies.json
 
-params/recovered_params_generic UCB_optuna.json
-params/recovered_params_generic UCB w seperation_optuna.json
-params/recovered_params_relative prospect UCB_optuna.json
-params/recovered_params_prospect UCB_optuna.json
-params/recovered_params_relative prospect UCB (inner)_optuna.json
-params/recovered_params_relative prospect UCB w seperation.json
-params/recovered_params_prospect UCB w seperation_optuna.json
-params/recovered_params_relative prospect UCB (inner) w seperation_optuna.json
+params/parameter_recovery/recovered_params_generic UCB_optuna.json
+params/parameter_recovery/recovered_params_generic UCB w seperation_optuna.json
+params/parameter_recovery/recovered_params_relative prospect UCB_optuna.json
+params/parameter_recovery/recovered_params_prospect UCB_optuna.json
+params/parameter_recovery/recovered_params_relative prospect UCB (inner)_optuna.json
+params/parameter_recovery/recovered_params_relative prospect UCB w seperation.json
+params/parameter_recovery/recovered_params_prospect UCB w seperation_optuna.json
+params/parameter_recovery/recovered_params_relative prospect UCB (inner) w seperation_optuna.json
