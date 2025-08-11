@@ -28,23 +28,8 @@ def cross_entropy_loss(params, actions, rewards, envs, option):
         alpha, beta, beta2, lam, mean, noise, temp = params
 
     for num_e, env in enumerate(envs):
-        result = 0
-        mu_post = np.array([mean] * 10)
-        sigma_post = np.array([noise] * 10)
-        sigma_0 = noise
-        epsilon = 1e-9
-
-        for t in range(horizon):
-            action, reward = actions[num_e][t], rewards[num_e][t]
-            p = get_action(mu_post, sigma_post, option, result, alpha=alpha, beta=beta, beta2=beta2, lam=lam)
-            p = np.exp((p - np.max(p)) / temp)
-            p = p / np.sum(p)
-            res -= np.log(p[action] + epsilon)
-
-            result += reward
-            K_t = sigma_post[action] / (sigma_post[action] + sigma_0)
-            sigma_post[action] = (1 - K_t) * sigma_post[action]
-            mu_post[action] += K_t * (reward - mu_post[action])
+        _, _, _, _, prob = simulate(variables, option, env)
+        res += prob
 
     return res
 
@@ -72,7 +57,7 @@ def process_single_run(args):
     objective = build_objective(actions, rewards, envs, s, var_len)
     
     sampler = TPESampler(multivariate=True)
-    study = optuna.create_study(direction="minimize", sampler=sampler)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
     study.optimize(objective, n_trials=400, n_jobs=1, show_progress_bar=False)
 
     best_params = study.best_params

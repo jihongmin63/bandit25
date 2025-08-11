@@ -1,5 +1,5 @@
 import numpy as np
-from variable import noise, horizon
+from variable import noise_o, noise_d, horizon
 
 def select_arm(n, env) :
     """
@@ -11,7 +11,7 @@ def select_arm(n, env) :
             (float) : the output of selected arm w/ noise
 
     """
-    return env[n] + np.random.normal(0, noise)
+    return env[n] + np.random.normal(0, noise_o)
 
 def prospect(x, alpha, lam):
     """
@@ -78,7 +78,7 @@ def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=
             return prospect(mean + sigma + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)             
     return 0
 
-def simulate(variables, option, env) :
+def simulate(variables, option, env, lamb = 0.9836, sigma_o = 4, sigma_d = 2.8) :
     """
         the function simulating agent's behavior on given strategy and environment
 
@@ -92,6 +92,7 @@ def simulate(variables, option, env) :
             reward_list (float array) : the rewards of selected bandits
             result (float) : accumulated reward
             switch (float) : switch rate over trial
+            prob (float) : log-likelihood
     """
 
     alpha, beta, beta2, lam = 1, 1, 1, 1
@@ -106,16 +107,18 @@ def simulate(variables, option, env) :
     
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
+    prob, epsilon = 0, 1e-12
 
-    mu_post = np.array([mean for i in range(10)], dtype=float)
-    sigma_post = np.array([noise for i in range(10)], dtype=float)
-    sigma_0 = noise
+    mu_pre = np.array([mean for i in range(10)], dtype=float)
+    sigma_pre = np.array([noise for i in range(10)], dtype=float)
 
     for t in range(horizon):
-        values = get_action(mu_post, sigma_post, option, result, alpha=alpha, beta=beta, beta2=beta2, lam=lam)
+        values = get_action(mu_pre, sigma_pre, option, result, alpha=alpha, beta=beta, beta2=beta2, lam=lam)
         values = values / temp
         values = np.exp(values - np.max(values))
         values = values / np.sum(values)
+        prob += np.log(values[action] + epsilon)
+        
         action = np.random.choice(len(values), p=values)
         reward = select_arm(action, env)
 
@@ -123,12 +126,19 @@ def simulate(variables, option, env) :
         rl.append(reward)
         result += reward
 
-        K_t = sigma_post[action] / (sigma_post[action] + sigma_0)
-        sigma_post[action] = (1-K_t) * sigma_post[action]
-        mu_post[action] += K_t * (reward - mu_post[action])
+        K_t = (np.square(sigma_pre[action])) / (np.square(sigma_pre[action]) + noise_o ** 2)
+        
+        mu_post = mu_pre
+        mu_post[action] += (reward - mu_pre[action]) * K_t
+
+        sigma_post = sigma_pre
+        sigma_post[action] = np.sqrt((1 - K_t) * np.square(sigma_pre[action]))
+
+        mu_pre = lamb * mu_post
+        sigma_pre = np.sqrt(np.square(lamb) * np.square(sigma_post) + np.square(noise_d))
 
     for t in range(1, horizon) :
         if(al[t-1] != al[t]) :
             switch += 1 / (horizon-1)
 
-    return al, rl, result, switch
+    return al, rl, result, switch, prob

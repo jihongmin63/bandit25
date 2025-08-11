@@ -1,22 +1,84 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
+from dataclasses import dataclass
+
+np.random.seed(42)
+
+@dataclass
+class Env:
+    env: np.ndarray         # num x structure (x horizon if restless)
+    stationary : int        # 1 -> stationary, 0 -> restless
+    num: int  = None        # number of env
+    structure: tuple = None # structure of bandit in each env
+    horizon: int = None     # number of horizon in each task
+    mean: int = None        # mean of bandits & decay center (restless)
+    noise: int = None       # noise of bandits (stationary)
+    noise_o : int = None    # obsevational noise of bandits (restless)
+    noise_d : int = None    # step noise of bandits (restless)
+    lamb : int = None       # decay parameter (restless)
+    name: str = None
 
 variance = 10
 noise = 10
-horizon = 30
+horizon = 70
 num = 100
 mean = [50, 0, -50]
 expected_mean = [50, 0, -50]
 
-
-np.random.seed(42)
-mix_env = np.random.normal(mean[1], variance, 10 * num).reshape(num, 10)
-pos_env = np.random.normal(mean[0], variance, 10 * num).reshape(num, 10)
-neg_env = np.random.normal(mean[2], variance, 10 * num).reshape(num, 10)
-tot_env = [pos_env, mix_env, neg_env]
-test_env = [np.random.normal(mean[i], variance, 10 * num).reshape(num, 10) for i in range(3)]
+# stationary, non-correlated
+stationary_noncor_envs = []
 env_name = ['pos', 'mix', 'neg']
+for i in range(3) :
+    e = Env(env = np.random.normal(mean[i], noise, 10 * num).reshape(num, 10), stationary = 1, num = num, structure = (10), horizon = horizon, mean = mean[i], noise = noise, name = f"stationary_noncor_{env_name[i]}")
+    stationary_noncor_envs.append(e)
+
+# restless
+lamb, noise_o, noise_d = 0.9836, 2.8, 4
+restless_envs = []
+for i in range(3) :
+    theta = mean[i]
+    envs = []
+
+    env = [ [np.random.normal(theta, 10)] for _ in range(4)]
+
+    for t in range(4):
+        for h in range(1, 300):
+            mu_post = np.random.normal(env[t][-1], noise_o)
+            mu_pre = np.random.normal(lamb * mu_post + (1 - lamb) * theta, noise_d)
+            env[t].append(mu_pre)
+
+    env = np.array(env).T
+
+    envs.append(env)
+
+    e = Env(env = envs, stationary = 0, num = 1, structure = (4), horizon = 300, mean = theta, noise_o = noise_o, noise_d = noise_d, lamb = lamb, name = f"restless_{env_name[i]}")
+    restless_envs.append(e)
+
+# env sample images
+
+plt.figure(figsize = (12, 5))
+x = [i+1 for i in range(300)]
+for t in range(4) :
+    plt.plot(x, restless_envs[1].env[0].T[t], linestyle='-')
+plt.xlabel("horizon")
+plt.ylabel("bandit mean")
+plt.title(f"{restless_envs[1].name}")
+plt.savefig(f"images/sample env_{restless_envs[1].name}.png")
+
+
+ex = stationary_noncor_envs[1].env[1, :]
+plt.figure(figsize=(5, 2))
+plt.title(f"{stationary_noncor_envs[1].name}")
+plt.imshow(ex.reshape(1, -1), origin='lower', cmap = 'coolwarm')
+for i in range(10) :
+    plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
+plt.xticks([i for i in range(10)])
+plt.yticks([])
+plt.savefig(f'images/sample env_{stationary_noncor_envs[1].name}.png')
+
+
+# strategies
 
 strategy = ['generic UCB', 'generic UCB w seperation', 'relative prospect UCB', 'prospect UCB', 'relative prospect UCB (inner)', 'relative prospect UCB w seperation', 'prospect UCB w seperation', 'relative prospect UCB (inner) w seperation']
 st_varaible = {
@@ -37,18 +99,7 @@ variables = {
     7 : ['alpha', 'beta', 'beta2', 'lambda', 'mean', 'noise', 'temp'],
 }
 
-n_envs = len(tot_env)
 n_strategies = len(strategy)
-
-recovery_set = {
-    'alpha' : [0.4, 0.6, 0.8, 1.0, 1.5],
-    'beta' : [0, 1, 2, 5, 7, 10],
-    'beta2' : [0, 1, 2, 5, 7, 10],
-    'lambda' : [0.5, 1.0, 2.0, 3.0],
-    'mean' : [-50, -25, -10, 0, 10, 25, 50],
-    'noise' : [1, 2, 5, 10, 15],
-    'temp': [0.1, 0.5, 1.0, 5.0],
-}
 
 recovery_range = {
     'alpha' : [0.1, 2.0],
@@ -61,20 +112,3 @@ recovery_range = {
 }
 
 n_recovery = 1000
-
-combinations = {}
-for name in strategy :
-    params_set = {}
-    for param in st_varaible[name] :
-        params_set[param] = recovery_set[param]
-    combinations[name] = list(itertools.product(*list(params_set.values())))
-
-ex = mix_env[0, :]
-plt.figure(figsize=(5, 2))
-plt.title("sample multi armed bandit")
-plt.imshow(ex.reshape(1, -1), origin='lower', cmap = 'coolwarm')
-for i in range(10) :
-    plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
-plt.xticks([i for i in range(10)])
-plt.yticks([])
-plt.savefig('images/sample env.png')
