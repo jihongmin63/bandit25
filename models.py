@@ -9,18 +9,8 @@ from scipy.stats import multivariate_normal
 from scipy.stats import norm
 from scipy.special import gamma, pbdv
 
-def pdf(x, mu, sigma) :
-    return norm.pdf(x, loc=mu, scale=sigma)
-    """
-    eps = 1e-12
-    z = (x - mu) / sigma
-    p = norm.cdf(z)
-    p = np.clip(p, eps, 1.0 - eps)
-    return np.exp(- eta * np.power(-np.log(p), alpha)) * eta * alpha * np.power(-np.log(p), alpha - 1) / sigma
-    """
-
-def Variance(risk_plus, risk_minus, loss, mu, sigma) :
-    def Helper(r, c = mu / sigma) :
+def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
+    def Helper(r, c = (mu - xi * reward) / sigma) :
         """
         Helper function calculating distorted sigma
         Args :
@@ -44,7 +34,7 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma) :
 
 class Kalman_SM :
     def __init__(self, params, env) :
-        self.loss, self.risk_plus, self.risk_minus, self.mean, self.noise, self.theta, self.alpha, self.rho, self.phi = params
+        self.loss, self.risk_plus, self.risk_minus, self.mean, self.noise, self.theta, self.alpha, self.rho, self.phi, self.xi = params
         
         self.structure = env.structure
         self.size = 1
@@ -58,13 +48,15 @@ class Kalman_SM :
         self.preservation = np.zeros(size)
 
         self.env = env
+
+        self.last_reward = 0
     
     def setting(self, info):
         return
     
     def calculate(self, t) :
         mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus)
-        sigma = np.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma))
+        sigma = np.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.last_reward))
 
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
@@ -85,6 +77,8 @@ class Kalman_SM :
 
         self.mu = self.env.lamb * mu_post + (1 - self.env.lamb) * self.env.mean
         self.sigma = np.sqrt(np.square(self.env.lamb) * np.square(sigma_post) + np.square(self.env.noise_d))
+
+        self.last_reward = reward
 
 """
 class GPR_SM :
