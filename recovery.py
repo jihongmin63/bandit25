@@ -4,7 +4,7 @@ import optuna
 from multiprocessing import Pool, set_start_method, cpu_count
 from optuna.samplers import TPESampler
 
-from variable import horizon, tot_env, strategy, st_varaible, recovery_range, n_recovery, variables
+from variable import horizon, strategy, st_varaible, recovery_range, n_recovery, variables, stationary_noncor_envs, Env
 from function import get_action, simulate
 
 import warnings
@@ -16,21 +16,10 @@ optuna.logging.set_verbosity(optuna.logging.ERROR)
 
 def cross_entropy_loss(params, actions, rewards, envs, option):
     res = 0
-    alpha, beta2, lam = 1, 1, 1
 
-    if len(params) == 4:
-        beta, mean, noise, temp = params
-    elif len(params) == 5:
-        beta, beta2, mean, noise, temp = params
-    elif len(params) == 6:
-        alpha, beta, lam, mean, noise, temp = params
-    else:
-        alpha, beta, beta2, lam, mean, noise, temp = params
-
-    for num_e, env in enumerate(envs):
-        _, _, _, _, prob = simulate(variables, option, env)
-        res += prob
-
+    for env in enumerate(envs):
+        _, _, _, _, prob = simulate(params, option, env, test = 1, real_actions=actions, real_rewards=rewards)
+    
     return res
 
 
@@ -72,7 +61,7 @@ def process_single_run(args):
 
 if __name__ == "__main__":
     set_start_method("spawn", force=True)
-    envs = tot_env[1]
+    envs = stationary_noncor_envs[1]
     
     for s, name in enumerate(strategy): 
         print(f"[{name} is currently working", end = " ")

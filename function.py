@@ -1,49 +1,105 @@
 import numpy as np
-from variable import noise_o, noise_d, horizon
+from variable import horizon, Env
+from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+from sklearn.gaussian_process.kernels import RBF
+from scipy.stats import mvn
+        
 
-def select_arm(n, env) :
+def select_arm(n, env, noise) :
     """
         Args:
             n (int) : the index of arm
-            env (int array) : means of arms
+            env (float array) : means of arms
+            noise (float) : observational noise
 
         Returns:
             (float) : the output of selected arm w/ noise
 
     """
-    return env[n] + np.random.normal(0, noise_o)
+    return env[n] + np.random.normal(0, noise)
 
-def prospect(x, alpha, lam):
+def prospect(x, loss, risk_plus, risk_minus):
     """
         It is utility function that modify the original value
 
         Args:
             x (int or numpy array) : the value that should be modified
-            alpha (float) : risk averse parameter
-            lam (float) : loss averse parameter
+            loss (float) : loss averse parameter
+            risk_plus (float) : risk averse parameter of plus domain
+            risk_minus (float) : risk averse parameter of minus domain
         
         Returns:
             util (int or numpy array) : the modified value 
     """
 
-    if isinstance(x, (float, int)):
-        if x >= 0:
-            return  np.power(x, alpha)
-        else:
-            return  -lam * np.power(-x, alpha)
-    elif isinstance(x, np.ndarray):
-        util = np.empty_like(x, dtype=float)
+    return np.power(np.maximum(x, 0), risk_plus) - loss * np.power(np.maximum(-x, 0), risk_minus)
 
-        pos = x >= 0
-        neg = x < 0
+# loss, risk, mean, noise, theta1, theta2, kappa, rho, beta1, beta2, phi2, phi3
 
-        util[pos] = np.power(x[pos], alpha)
-        util[neg] = -lam * np.power(-x[neg], alpha)
-
-        return util
-    
-def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=2.25) :
+def simulate(variables, env, model, test = 0, real_actions = None, real_rewards = None) :
     """
+        the function simulating agent's behavior on given strategy and environment
+
+        Args:
+            varaibles (float array) : variables required for the given strategy
+            option (int) : index of strategy
+            env (numpy array) : mean of bandits
+
+            test (int) : 0 in general, 1 if it is for calculating cross entropy loss
+            real_actions (int array) : selected idx by agent
+            real_rewards (float array) : rewards by agent
+        
+        Returns:
+            action_list (int array) : the indexes of selected bandits (it is flatten idx)
+            reward_list (float array) : the rewards of selected bandits
+            result (float) : accumulated reward
+            switch (float) : switch rate over trial
+            prob (float) : log-likelihood
+    """
+
+    al, rl = [], []
+    result, switch, directed, random = 0, 0, 0, 0
+    prob, epsilon = 0, 1e-12
+
+    model = model(variables, env)
+    #model.set()
+
+    for t in range(env.horizon):
+        temptation = model.calculate(t)
+        values = np.exp(temptation - np.max(temptation))
+        values = values / np.sum(values)
+
+        if not test :
+            if (np.isnan(values).any()) :
+                print(temptation)
+            action = np.random.choice(len(values), p=values)
+            if env.stationary :
+                reward = select_arm(action, env.env.flatten(), env.noise)
+            else :
+                reward = select_arm(action, env.env[t].flatten(), env.noise)
+            
+            action = np.unravel_index(action, env.structure)
+        else :
+            action = real_actions[t]
+            reward = real_rewards[t]
+
+        model.update(action, reward)
+        
+        al.append(action)
+        rl.append(reward)
+        result += reward
+        prob += np.log(values[action] + epsilon)
+
+    for t in range(1, horizon) :
+        if(al[t-1] != al[t]) :
+            switch += 1 / (horizon-1)
+
+    return al, rl, result, switch, prob
+
+"""
+    
+def get_action(mean, variance, option, result, risk=0.88, beta=1, beta2=1, loss=2.25) :
+    
         the function calculating values according to different strategies
 
         Args:
@@ -52,79 +108,92 @@ def get_action(mean, variance, option, result, alpha=0.88, beta=1, beta2=1, lam=
             option (int) : index for strategy
             result (int) : accmulated reward
 
-            alpha, beta, beta2, lam (int) : parameters required for specific strategy
+            risk, beta, beta2, loss (int) : parameters required for specific strategy
 
         Returns:
             (numpy array) : calculated value
-    """
+    
 
     if (option == 0) : # generic UCB
         return mean + beta * variance
     elif (option == 2) : # relatvie prospect UCB
-        return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + beta * variance
+        return prospect(mean + result, risk=risk, loss=loss) - prospect(result, risk=risk, loss=loss) + beta * variance
     elif (option == 3) : # prospect UCB
-        return prospect(mean, alpha=alpha, lam=lam) + beta * variance
+        return prospect(mean, risk=risk, loss=loss) + beta * variance
     elif (option == 4) : # relative prospect UCB (inner)
-        return prospect(mean + beta * variance + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)
+        return prospect(mean + beta * variance + result, riska=risk, loss=loss) - prospect(result, risk=risk, loss=loss)
     else:
         sigma = np.where(mean > 0, beta * variance / 2, beta2 * variance / 2) + np.where(mean < 0, beta2 * variance / 2, beta * variance / 2)
         if (option == 1) : # seperation of sigma
             return mean + sigma
         elif (option == 5) :
-            return prospect(mean + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam) + sigma
+            return prospect(mean + result, risk=risk, loss=loss) - prospect(result, risk=risk, loss=loss) + sigma
         elif (option == 6) :
-            return prospect(mean, alpha=alpha, lam=lam) + sigma
+            return prospect(mean, risk=risk, loss=loss) + sigma
         elif (option == 7) :
-            return prospect(mean + sigma + result, alpha=alpha, lam=lam) - prospect(result, alpha=alpha, lam=lam)             
+            return prospect(mean + sigma + result, risk=risk, loss=loss) - prospect(result, risk=risk, loss=loss)             
     return 0
-
-def simulate(variables, option, env, lamb = 0.9836, sigma_o = 4, sigma_d = 2.8) :
-    """
+def simulate(variables, option, env, test = 0, real_actions = None, real_rewards = None) :
+    
         the function simulating agent's behavior on given strategy and environment
 
         Args:
             varaibles (float array) : variables required for the given strategy
             option (int) : index of strategy
             env (numpy array) : mean of bandits
+
+            test (int) : 0 in general, 1 if it is for calculating cross entropy loss
+            real_actions (int array) : selected idx by agent
+            real_rewards (float array) : rewards by agent
         
         Returns:
-            action_list (int array) : the indexes of selected bandits
+            action_list (int array) : the indexes of selected bandits (it is flatten idx)
             reward_list (float array) : the rewards of selected bandits
             result (float) : accumulated reward
             switch (float) : switch rate over trial
             prob (float) : log-likelihood
-    """
+    
+    if not env.stationary :
+        lamb, theta, noise_o, noise_d = env.lamb, env.theta, env.noise, env.noise_d
 
-    alpha, beta, beta2, lam = 1, 1, 1, 1
+    risk, beta, beta2, loss = 1, 1, 1, 1
     if len(variables) == 4 :
         beta, mean, noise, temp = variables
     elif len(variables) == 5:
         beta, beta2, mean, noise, temp = variables
     elif len(variables) == 6:
-        alpha, beta, lam, mean, noise, temp = variables
+        risk, beta, loss, mean, noise, temp = variables
     elif len(variables) == 7:
-        alpha, beta, beta2, lam, mean, noise, temp = variables
+        risk, beta, beta2, loss, mean, noise, temp = variables
     
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
     prob, epsilon = 0, 1e-12
 
-    mu_pre = np.array([mean for i in range(10)], dtype=float)
-    sigma_pre = np.array([noise for i in range(10)], dtype=float)
+    mu_pre = np.ones(env.structure, dtype = float) * mean
+    sigma_pre = np.ones(env.structure, dtype = float) * noise
 
-    for t in range(horizon):
-        values = get_action(mu_pre, sigma_pre, option, result, alpha=alpha, beta=beta, beta2=beta2, lam=lam)
+    for t in range(env.horizon):
+        values = get_action(mu_pre, sigma_pre, option, result, risk=risk, beta=beta, beta2=beta2, loss=loss)
         values = values / temp
         values = np.exp(values - np.max(values))
         values = values / np.sum(values)
-        prob += np.log(values[action] + epsilon)
-        
-        action = np.random.choice(len(values), p=values)
-        reward = select_arm(action, env)
+        values = values.flatten()
 
+        if not test :
+            action = np.random.choice(len(values), p=values)
+            if env.stationary :
+                reward = select_arm(action, env.env.flatten(), env.noise)
+            else :
+                reward = select_arm(action, env.env[t].flatten(), env.noise)
+        else :
+            action = real_actions[t]
+            reward = real_rewards[t]
+        
         al.append(action)
         rl.append(reward)
         result += reward
+        prob += np.log(values[action] + epsilon)
 
         K_t = (np.square(sigma_pre[action])) / (np.square(sigma_pre[action]) + noise_o ** 2)
         
@@ -134,11 +203,16 @@ def simulate(variables, option, env, lamb = 0.9836, sigma_o = 4, sigma_d = 2.8) 
         sigma_post = sigma_pre
         sigma_post[action] = np.sqrt((1 - K_t) * np.square(sigma_pre[action]))
 
-        mu_pre = lamb * mu_post
-        sigma_pre = np.sqrt(np.square(lamb) * np.square(sigma_post) + np.square(noise_d))
+        if env.stationary :
+            mu_pre = mu_post
+            sigma_pre = sigma_post
+        else :
+            mu_pre = lamb * mu_post + (1-lamb) * theta
+            sigma_pre = np.sqrt(np.square(lamb) * np.square(sigma_post) + np.square(noise_d))
 
     for t in range(1, horizon) :
         if(al[t-1] != al[t]) :
             switch += 1 / (horizon-1)
 
     return al, rl, result, switch, prob
+"""

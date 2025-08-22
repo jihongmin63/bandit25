@@ -18,3 +18,8 @@ params/parameter_recovery/recovered_switchs_relative prospect UCB (inner)_optuna
 params/parameter_recovery/recovered_switchs_relative prospect UCB w seperation_optuna.json
 params/parameter_recovery/recovered_switchs_prospect UCB w seperation_optuna.json
 params/parameter_recovery/recovered_switchs_relative prospect UCB (inner) w seperation_optuna.json
+
+envs/restless_envs
+envs/stationary_noncor_envs
+envs/stationary_cor_1D_envs
+envs/stationary_cor_2D_envs
