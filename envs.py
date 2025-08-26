@@ -41,6 +41,7 @@ for i in range(3) :
 
 with open("envs/restless_envs", 'wb') as f:
     pickle.dump(restless_envs, f)
+
 """
 # corelated 1D
 d, l = 10, [1, 2]
@@ -56,6 +57,7 @@ for i, mu in enumerate(mean) :
             ])*50+0.01*np.identity(d)
 
             sample = np.random.multivariate_normal(mean_vector, covariance_vector)
+            sample = np.sum(sample, np.random.normal(0, 1, size=sample.shape))
             stationary_cor_1D_envs[i][j].append(Env(env = sample, stationary = 1, structure = (d,), horizon = 25, mean = mu, noise = , l = cor, name = f"stationary_cor_1D_{name[j]}_{env_name[i]}"))
 
 with open("envs/stationary_cor_1D_envs", 'wb') as f:
@@ -73,6 +75,7 @@ for i, mu in enumerate(mean) :
             ])*50+0.01*np.identity(d**2)
 
             sample = np.random.multivariate_normal(mean_vector, covariance_vector).reshape(d, d)
+            sample = np.sum(sample, np.random.normal(0, 1, size=sample.shape))
             stationary_cor_2D_envs[i][j].append(Env(env = sample, stationary = 1, structure = (d,d,), horizon = 25, mean = mu, noise = , l = cor, name = f"stationary_cor_2D_{name[j]}_{env_name[i]}"))
 
 with open("envs/stationary_cor_2D_envs", 'wb') as f:

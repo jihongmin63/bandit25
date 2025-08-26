@@ -32,31 +32,34 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
     
     return Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - np.square(Helper(risk_plus) - loss * Helper(risk_minus))
 
+free_varaibles = {
+    'Kalman_SM' : {'loss', 'risk_plus', 'risk_minus', 'init_mean', 'init_noise', 'theta', 'alpha', 'rho', 'phi', 'xi'}
+}
+
 class Kalman_SM :
     def __init__(self, params, env) :
-        self.loss, self.risk_plus, self.risk_minus, self.mean, self.noise, self.theta, self.alpha, self.rho, self.phi, self.xi = params
+        self.loss, self.risk_plus, self.risk_minus, self.init_mean, self.init_noise, self.theta, self.alpha, self.rho, self.phi, self.xi = params
         
         self.structure = env.structure
         self.size = 1
         for s in self.structure :
             self.size *= s
-        size = self.size
 
-        self.mu = np.ones(size) * self.mean
-        self.sigma = np.ones(size) * self.noise
+        self.mu = np.ones(self.size) * self.init_mean
+        self.sigma = np.ones(self.size) * self.init_noise
 
-        self.preservation = np.zeros(size)
+        self.preservation = np.zeros(self.size)
 
         self.env = env
 
-        self.last_reward = 0
+        self.prev_reward = 0
     
     def setting(self, info):
         return
     
     def calculate(self, t) :
-        mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus)
-        sigma = np.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.last_reward))
+        mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, result = self.prev_reward)
+        sigma = np.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward))
 
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
@@ -78,7 +81,7 @@ class Kalman_SM :
         self.mu = self.env.lamb * mu_post + (1 - self.env.lamb) * self.env.mean
         self.sigma = np.sqrt(np.square(self.env.lamb) * np.square(sigma_post) + np.square(self.env.noise_d))
 
-        self.last_reward = reward
+        self.prev_reward = reward
 
 """
 class GPR_SM :

@@ -18,7 +18,7 @@ def select_arm(n, env, noise) :
     """
     return env[n] + np.random.normal(0, noise)
 
-def prospect(x, loss, risk_plus, risk_minus):
+def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None):
     """
         It is utility function that modify the original value
 
@@ -28,10 +28,13 @@ def prospect(x, loss, risk_plus, risk_minus):
             risk_plus (float) : risk averse parameter of plus domain
             risk_minus (float) : risk averse parameter of minus domain
         
+            xi (float, 0 ~ 1) : parameter dictating whether it is relative prospect function
+            prev_result (float) : previous reward for relative prospect function
         Returns:
             util (int or numpy array) : the modified value 
     """
-
+    if xi :
+        x -= xi * prev_result
     return np.power(np.maximum(x, 0), risk_plus) - loss * np.power(np.maximum(-x, 0), risk_minus)
 
 # loss, risk, mean, noise, theta1, theta2, kappa, rho, beta1, beta2, phi2, phi3
@@ -44,6 +47,7 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
             varaibles (float array) : variables required for the given strategy
             option (int) : index of strategy
             env (numpy array) : mean of bandits
+            model (class defined in models.py) : some function including setting, calculate, update
 
             test (int) : 0 in general, 1 if it is for calculating cross entropy loss
             real_actions (int array) : selected idx by agent

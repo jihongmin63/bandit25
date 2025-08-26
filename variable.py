@@ -23,27 +23,33 @@ variance = 10
 noise = 10
 horizon = 70
 num = 100
-mean = [50, 0, -50]
+mean = [100, 0, -100]
 env_name = ['pos', 'mix', 'neg']
 
-# strategies
-
-# loss, risk, mean, noise, theta1, theta2, kappa, alpha, rho, beta1, beta2, phi2, phi3
-
 recovery_range = {
-    'loss' : [0, 10],
-    'risk' : [0.1, 2.0],
-    'mean' : [-50, 50],
-    'noise' : [0.1, 20],
-    'theta1'
-    'theta2'
-    'kappa'
-    'alpha'
-    'rho'
-    'beta1' : [0, 10],
-    'beta2' : [0, 10],
-    'phi2' :
-    'phi3'
+    'loss' : [0, np.inf], 
+    'risk_plus' : [0, np.inf], 
+    'risk_minus' : [0, np.inf],  
+    'init_mean' : , 
+    'init_noise' : , 
+    'theta' : [0, np.inf], 
+    'alpha' : [0, 1], 
+    'rho' : [-np.inf, np.inf], 
+    'phi' : [-np.inf, np.inf], 
+    'xi' : [0, 1]
+}
+
+recovery_init = {
+    'loss' : , 
+    'risk_plus' : , 
+    'risk_minus' : , 
+    'init_mean' : , 
+    'init_noise' : , 
+    'theta' : , 
+    'alpha' : 0.5, 
+    'rho' : , 
+    'phi' : , 
+    'xi' : 0.5
 }
 
 recovery_subjects = 100
