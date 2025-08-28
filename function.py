@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 from variable import horizon, Env
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.gaussian_process.kernels import RBF
@@ -16,14 +16,14 @@ def select_arm(n, env, noise) :
             (float) : the output of selected arm w/ noise
 
     """
-    return env[n] + np.random.normal(0, noise)
+    return env[n] + torch.normal(0, noise)
 
 def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None):
     """
         It is utility function that modify the original value
 
         Args:
-            x (int or numpy array) : the value that should be modified
+            x (int or array) : the value that should be modified
             loss (float) : loss averse parameter
             risk_plus (float) : risk averse parameter of plus domain
             risk_minus (float) : risk averse parameter of minus domain
@@ -31,11 +31,11 @@ def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None):
             xi (float, 0 ~ 1) : parameter dictating whether it is relative prospect function
             prev_result (float) : previous reward for relative prospect function
         Returns:
-            util (int or numpy array) : the modified value 
+            util (int or array) : the modified value 
     """
     if xi :
         x -= xi * prev_result
-    return np.power(np.maximum(x, 0), risk_plus) - loss * np.power(np.maximum(-x, 0), risk_minus)
+    return torch.pow(torch.maximum(x, 0), risk_plus) - loss * torch.pow(torch.maximum(-x, 0), risk_minus)
 
 # loss, risk, mean, noise, theta1, theta2, kappa, rho, beta1, beta2, phi2, phi3
 
@@ -70,19 +70,19 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
 
     for t in range(env.horizon):
         temptation = model.calculate(t)
-        values = np.exp(temptation - np.max(temptation))
-        values = values / np.sum(values)
+        values = torch.exp(temptation - torch.max(temptation))
+        values = values / torch.sum(values)
 
         if not test :
-            if (np.isnan(values).any()) :
+            if (torch.isnan(values).any()) :
                 print(temptation)
-            action = np.random.choice(len(values), p=values)
+            action = torch.multinomial(values, num_samples=1)
             if env.stationary :
                 reward = select_arm(action, env.env.flatten(), env.noise)
             else :
                 reward = select_arm(action, env.env[t].flatten(), env.noise)
             
-            action = np.unravel_index(action, env.structure)
+            action = torch.unravel_index(action, env.structure)
         else :
             action = real_actions[t]
             reward = real_rewards[t]
@@ -92,7 +92,7 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
         al.append(action)
         rl.append(reward)
         result += reward
-        prob += np.log(values[action] + epsilon)
+        prob += torch.log(values[action] + epsilon)
 
     for t in range(1, horizon) :
         if(al[t-1] != al[t]) :

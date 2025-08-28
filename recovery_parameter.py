@@ -1,6 +1,4 @@
-import numpy as np
-import json
-import optuna
+import torch
 from multiprocessing import Pool, set_start_method, cpu_count
 from scipy.optimize import minimize
 
@@ -35,7 +33,7 @@ if __name__ == "__main__":
         x0 = []
         bounds = []
         for var_name in free_varaibles['Kalman_SM'] :
-                param.append(np.random.uniform(recovery_range[var_name][0], recovery_range[var_name][1], 1)[0])
+                param.append((torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item())
                 bounds.append(recovery_range[var_name])
                 x0.append(recovery_init[var_name])
         initial_params_list.append(param)

@@ -1,5 +1,5 @@
 
-import numpy as np
+import torch
 from variable import horizon, Env
 from function import prospect
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
@@ -7,7 +7,37 @@ from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import mvn
 from scipy.stats import multivariate_normal
 from scipy.stats import norm
-from scipy.special import gamma, pbdv
+from scipy import special
+
+class Parabolic_Cylinder(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, v, x):
+        out, _ = special.pbdv(v.item(), x.item())
+        out = torch.tensor(out, device=v.device, dtype=v.dtype)
+        ctx.save_for_backward(v, x)
+        return out 
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        v, x = ctx.saved_tensors
+        v0, x0 = v.item(), x.item()
+
+        eps = 1e-5
+        out1, _ = special.pbdv(v0+1, x0)
+        out2, _ = special.pbdv(v0-1, x0)
+
+        grad_x = 1/2 * (- out1 - v0 * out2)
+
+        out3, _ = special.pbdv(v0+eps, x0)
+        out4, _ = special.pbdv(v0, x0)
+        
+        grad_v = (out3 - out4) / eps
+
+        grad_output_tensor = grad_output.reshape(v.shape)
+        grad_v_tensor = torch.tensor(grad_v, device=v.device, dtype=v.dtype).reshape(v.shape)
+        grad_x_tensor = torch.tensor(grad_x, device=v.device, dtype=v.dtype).reshape(v.shape)
+
+        return grad_v_tensor * grad_output_tensor, grad_x_tensor * grad_output_tensor
 
 def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
     def Helper(r, c = (mu - xi * reward) / sigma) :
@@ -22,15 +52,15 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
             (array) 
         """
 
-        v1 = np.power(sigma, r)
-        v2 = np.sqrt(2 * np.pi())
-        v3 = np.power(np.e, - r*r / 4)
-        v4 = gamma(z = r+1)
-        v5, _ = pbdv(v = -r-1, x = -c)
+        v1 = torch.pow(sigma, r)
+        v2 = torch.sqrt(2 * torch.pi)
+        v3 = torch.power(torch.e, - r*r / 4)
+        v4 = torch.exp(torch.lgamma(r+1))
+        v5 = Parabolic_Cylinder.apply(-r-1, -c)
 
         return v1 * v3 * v4 * v5 / v2
     
-    return Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - np.square(Helper(risk_plus) - loss * Helper(risk_minus))
+    return Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - torch.square(Helper(risk_plus) - loss * Helper(risk_minus))
 
 free_varaibles = {
     'Kalman_SM' : {'loss', 'risk_plus', 'risk_minus', 'init_mean', 'init_noise', 'theta', 'alpha', 'rho', 'phi', 'xi'}
@@ -45,10 +75,10 @@ class Kalman_SM :
         for s in self.structure :
             self.size *= s
 
-        self.mu = np.ones(self.size) * self.init_mean
-        self.sigma = np.ones(self.size) * self.init_noise
+        self.mu = torch.ones(self.size) * self.init_mean
+        self.sigma = torch.ones(self.size) * self.init_noise
 
-        self.preservation = np.zeros(self.size)
+        self.preservation = torch.zeros(self.size)
 
         self.env = env
 
@@ -59,16 +89,21 @@ class Kalman_SM :
     
     def calculate(self, t) :
         mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, result = self.prev_reward)
-        sigma = np.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward))
+        sigma = torch.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward))
 
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
     def update(self, action, reward) :
-        idx = np.ravel_multi_index(action, self.structure)
+        def ravel_idx(array) :
+            size = array[0]
+            for i in range(1, len(array)) :
+                size = size * self.structure[i] + array[i]
+            return size
+        idx = ravel_idx(action)
 
         self.preservation[idx] = self.preservation[idx] + self.alpha * (1 - self.preservation[idx])
 
-        K_t = (np.square(self.mu[idx])) / (np.square(self.mu[idx]) + self.env.noise ** 2)
+        K_t = (torch.square(self.mu[idx])) / (torch.square(self.mu[idx]) + self.env.noise ** 2)
         
         mu_post = self.mu
         mu_post[idx] += (reward - self.mu[idx]) * K_t
@@ -76,10 +111,10 @@ class Kalman_SM :
         # mu_post[idx] += (prospect(reward, self.loss, self.risk_plus, self.risk_minus) - self.mu[idx]) * K_t
 
         sigma_post = self.sigma
-        sigma_post[action] = np.sqrt((1 - K_t) * np.square(self.sigma[idx]))
+        sigma_post[action] = torch.sqrt((1 - K_t) * torch.square(self.sigma[idx]))
 
         self.mu = self.env.lamb * mu_post + (1 - self.env.lamb) * self.env.mean
-        self.sigma = np.sqrt(np.square(self.env.lamb) * np.square(sigma_post) + np.square(self.env.noise_d))
+        self.sigma = torch.sqrt(torch.square(self.env.lamb) * torch.square(sigma_post) + torch.square(self.env.noise_d))
 
         self.prev_reward = reward
 
