@@ -29,9 +29,9 @@ class Parabolic_Cylinder(torch.autograd.Function):
         grad_x = 1/2 * (- out1 - v0 * out2)
 
         out3, _ = special.pbdv(v0+eps, x0)
-        out4, _ = special.pbdv(v0, x0)
+        out4, _ = special.pbdv(v0-eps, x0)
         
-        grad_v = (out3 - out4) / eps
+        grad_v = (out3 - out4) / (2 * eps)
 
         grad_output_tensor = grad_output.reshape(v.shape)
         grad_v_tensor = torch.tensor(grad_v, device=v.device, dtype=v.dtype).reshape(v.shape)

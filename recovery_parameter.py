@@ -27,25 +27,36 @@ if __name__ == "__main__":
     name = 'Kalman_SM on restless envs'
     envs = restless_envs[1]
     
+    lr, step = 1e-4, 1000
+
     initial_params_list, recovered_params_list = [], []
     for _ in range(recovery_subjects):
         param = []
         x0 = []
-        bounds = []
+        #bounds = []
         for var_name in free_varaibles['Kalman_SM'] :
                 param.append((torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item())
-                bounds.append(recovery_range[var_name])
+                #bounds.append(recovery_range[var_name])
                 x0.append(recovery_init[var_name])
-        initial_params_list.append(param)
-            
+        #initial_params_list.append(param)
+        param = torch.tensor(param)
+        x0 = torch.tensor(x0, requires_grad=True)
+
         real_actions, real_rewards = [], []
         for i in range(recovery_trials) :
             al, rl, _, _, _ = simulate(param, envs[i], Kalman_SM)
             real_actions.append(al)
             real_rewards.append(rl)
         
-        recovered = minimize(cross_entropy_loss, x0=x0, bounds=bounds, args = (real_actions, real_rewards, envs[:recovery_trials]))
-        recovered_params_list.append(recovered)
+        for _ in range(step) :
+            loss = cross_entropy_loss(x0, real_actions, real_rewards, envs[:recovery_trials])
+            x0.grad.zero_()
+            loss.backward()
+            with torch.no_grad() :
+                x0 -= lr * x0.grad()
+
+        #recovered = minimize(cross_entropy_loss, x0=x0, bounds=bounds, args = (real_actions, real_rewards, envs[:recovery_trials]))
+        recovered_params_list.append(x0)
 
         with open(f"params/parameter_recovery/recovered_params_{name}.json", 'wb') as f:
             pickle.dump([initial_params_list, recovered_params_list], f)
