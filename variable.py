@@ -27,28 +27,28 @@ mean = [100, 0, -100]
 env_name = ['pos', 'mix', 'neg']
 
 recovery_range = {
-    'loss' : [0, np.inf], 
-    'risk_plus' : [0, np.inf], 
-    'risk_minus' : [0, np.inf],  
-    'init_mean' : , 
-    'init_noise' : , 
-    'theta' : [0, np.inf], 
-    'alpha' : [0, 1], 
-    'rho' : [-np.inf, np.inf], 
-    'phi' : [-np.inf, np.inf], 
+    'loss' : [0.0, 10.0], 
+    'risk_plus' : [0.0, 3.0], 
+    'risk_minus' : [0.0, 3.0],  
+    'init_mean' : [-100.0, 100.0], 
+    'init_noise' : [2.0, 10.0], 
+    'theta' : [1e-4, 5.0], 
+    'alpha' : [0.0, 1.0], 
+    'rho' : [-20.0, 20.0], 
+    'phi' : [-20.0, 20.0], 
     'xi' : [0, 1]
 }
 
 recovery_init = {
-    'loss' : , 
-    'risk_plus' : , 
-    'risk_minus' : , 
-    'init_mean' : , 
-    'init_noise' : , 
-    'theta' : , 
+    'loss' : 2.0, 
+    'risk_plus' : 1.0, 
+    'risk_minus' : 2.0, 
+    'init_mean' : 0.0, 
+    'init_noise' : 5.0, 
+    'theta' : 1.0, 
     'alpha' : 0.5, 
-    'rho' : , 
-    'phi' : , 
+    'rho' : 5.0, 
+    'phi' : 10.0, 
     'xi' : 0.5
 }
 

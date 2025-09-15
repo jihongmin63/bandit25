@@ -1,46 +1,48 @@
 
 import torch
 from variable import horizon, Env
-from function import prospect
+from function import prospect, simulate
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import mvn
 from scipy.stats import multivariate_normal
 from scipy.stats import norm
 from scipy import special
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
 
 class Parabolic_Cylinder(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, v, x):
-        out, _ = special.pbdv(v.item(), x.item())
-        out = torch.tensor(out, device=v.device, dtype=v.dtype)
+    def forward(ctx, v: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        v_np = v.detach().cpu().numpy().astype(np.float64)
+        x_np = x.detach().cpu().numpy().astype(np.float64)
+        out_np, _ = special.pbdv(v_np, x_np)
+        out = torch.from_numpy(out_np).to(device=x.device, dtype=x.dtype)
         ctx.save_for_backward(v, x)
-        return out 
-    
+        return out
+
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, grad_output: torch.Tensor):
         v, x = ctx.saved_tensors
-        v0, x0 = v.item(), x.item()
+        v0 = v.detach().cpu().numpy().astype(np.float64)
+        x0 = x.detach().cpu().numpy().astype(np.float64)
 
-        eps = 1e-5
-        out1, _ = special.pbdv(v0+1, x0)
-        out2, _ = special.pbdv(v0-1, x0)
+        eps = 1e-8
 
-        grad_x = 1/2 * (- out1 - v0 * out2)
+        _, grad_x_np = special.pbdv(v0, x0)
 
-        out3, _ = special.pbdv(v0+eps, x0)
-        out4, _ = special.pbdv(v0-eps, x0)
-        
-        grad_v = (out3 - out4) / (2 * eps)
+        out3, _ = special.pbdv(v0 + eps, x0)
+        out4, _ = special.pbdv(v0 - eps, x0)
+        grad_v_np = (out3 - out4) / (2 * eps)
 
-        grad_output_tensor = grad_output.reshape(v.shape)
-        grad_v_tensor = torch.tensor(grad_v, device=v.device, dtype=v.dtype).reshape(v.shape)
-        grad_x_tensor = torch.tensor(grad_x, device=v.device, dtype=v.dtype).reshape(v.shape)
+        grad_x = torch.from_numpy(grad_x_np).to(device=x.device, dtype=x.dtype)
+        grad_v = torch.from_numpy(grad_v_np).to(device=v.device, dtype=v.dtype)
 
-        return grad_v_tensor * grad_output_tensor, grad_x_tensor * grad_output_tensor
-
+        return grad_v * grad_output, grad_x * grad_output
+    
 def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
-    def Helper(r, c = (mu - xi * reward) / sigma) :
+    def Helper(r, c = (mu - xi * reward) / sigma, log = 0) :
         """
         Helper function calculating distorted sigma
         Args :
@@ -51,72 +53,111 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
         Returns:
             (array) 
         """
-
         v1 = torch.pow(sigma, r)
-        v2 = torch.sqrt(2 * torch.pi)
-        v3 = torch.power(torch.e, - r*r / 4)
+        v2 = torch.sqrt(torch.tensor(2 * torch.pi, device=xi.device, dtype=r.dtype))
+        v3 = torch.exp(- (c*c) / 4)
         v4 = torch.exp(torch.lgamma(r+1))
         v5 = Parabolic_Cylinder.apply(-r-1, -c)
-
+        if (log) :
+            print(" r, c : ", r, c)
+            print(" v1 : ", v1)
+            print(" v2 : ", v2)
+            print(" v3 : ", v3)
+            print(" v4 : ", v4)
+            print(" v5 : ", v5)
         return v1 * v3 * v4 * v5 / v2
+    var = Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - torch.square(Helper(risk_plus) - loss * Helper(risk_minus))
+
+    if torch.any(var <= 0):
+        #var = Helper(2 * risk_plus, log = 1) + loss * loss * Helper(2 * risk_minus, log = 1) - torch.square(Helper(risk_plus, log = 1) - loss * Helper(risk_minus, log = 1))
+        print("<",Helper(2 * risk_plus, log = 1),">")
+        print("<",loss * loss * Helper(2 * risk_minus, log = 1),">")
+        print("<",torch.square(Helper(risk_plus, log = 1) - loss * Helper(risk_minus, log = 1)),">")
+        raise ValueError("negative variance")
     
-    return Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - torch.square(Helper(risk_plus) - loss * Helper(risk_minus))
+    return var
+
 
 free_varaibles = {
-    'Kalman_SM' : {'loss', 'risk_plus', 'risk_minus', 'init_mean', 'init_noise', 'theta', 'alpha', 'rho', 'phi', 'xi'}
+    'Kalman_SM' : ['loss', 'risk_plus', 'risk_minus', 'init_mean', 'init_noise', 'theta', 'alpha', 'rho', 'phi', 'xi']
 }
 
 class Kalman_SM :
     def __init__(self, params, env) :
         self.loss, self.risk_plus, self.risk_minus, self.init_mean, self.init_noise, self.theta, self.alpha, self.rho, self.phi, self.xi = params
-        
         self.structure = env.structure
         self.size = 1
         for s in self.structure :
             self.size *= s
 
-        self.mu = torch.ones(self.size) * self.init_mean
-        self.sigma = torch.ones(self.size) * self.init_noise
+        self.mu = self.init_mean.expand(self.size).clone()
+        self.sigma = self.init_noise.expand(self.size).clone()
+        self.preservation = torch.zeros(self.size, dtype=self.init_mean.dtype, device=self.init_mean.device)
 
-        self.preservation = torch.zeros(self.size)
 
         self.env = env
-
         self.prev_reward = 0
     
     def setting(self, info):
         return
     
-    def calculate(self, t) :
-        mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, result = self.prev_reward)
-        sigma = torch.sqrt(Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward))
-
+    def calculate(self, t, debug = 0) :
+        mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, prev_result = self.prev_reward)
+        var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
+        sigma = torch.sqrt(var)
+        if debug :
+            print(mu, var, sigma)
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
-    def update(self, action, reward) :
+    def update(self, action, reward, debug = 0) :
+        """
         def ravel_idx(array) :
             size = array[0]
             for i in range(1, len(array)) :
                 size = size * self.structure[i] + array[i]
             return size
         idx = ravel_idx(action)
+        """
+        if debug :
+            print(" - prev pre ", self.preservation)
+            print(" - prev mu ", self.mu)
+            print(" - prev sigma ", self.sigma)
+        self.preservation = self.preservation + self.alpha * (action - self.preservation)
+        K_t = torch.square(self.sigma) / (torch.square(self.sigma) + self.env.noise ** 2)
 
-        self.preservation[idx] = self.preservation[idx] + self.alpha * (1 - self.preservation[idx])
+        mu_post = self.mu + action * (reward - self.mu) * K_t
+        sigma_post = self.sigma + action * torch.sqrt((1 - K_t) * torch.square(self.sigma))
 
-        K_t = (torch.square(self.mu[idx])) / (torch.square(self.mu[idx]) + self.env.noise ** 2)
-        
-        mu_post = self.mu
-        mu_post[idx] += (reward - self.mu[idx]) * K_t
-        # prospect theory is utilized in decision rule
-        # mu_post[idx] += (prospect(reward, self.loss, self.risk_plus, self.risk_minus) - self.mu[idx]) * K_t
+        lamb = self.env.lamb
+        noise_d = self.env.noise_d
 
-        sigma_post = self.sigma
-        sigma_post[action] = torch.sqrt((1 - K_t) * torch.square(self.sigma[idx]))
-
-        self.mu = self.env.lamb * mu_post + (1 - self.env.lamb) * self.env.mean
-        self.sigma = torch.sqrt(torch.square(self.env.lamb) * torch.square(sigma_post) + torch.square(self.env.noise_d))
-
+        self.mu = lamb * mu_post + (1 - lamb) * self.env.mean
+        self.sigma = torch.sqrt((lamb ** 2) * torch.square(sigma_post) + noise_d ** 2)
         self.prev_reward = reward
+
+        if debug :
+            print(" - int mu ", mu_post)
+            print(" - int sigma ", sigma_post)
+            print(" - cur pre ", self.preservation)
+            print(" - cur mu ", self.mu)
+            print(" - cur sigma ", self.sigma)
+
+        
+
+if __name__ == "__main__":
+    with open("envs/restless_envs", 'rb') as f:
+        restless_envs = pickle.load(f)
+    #self.loss, self.risk_plus, self.risk_minus, self.init_mean, self.init_noise, self.theta, self.alpha, self.rho, self.phi, self.xi
+    param = torch.tensor([5.0, 0.6, 0.6, 0, 10, 5, 0.5, 10, 10, 0])
+    al, rl, r, s, p = simulate(param, restless_envs[1][0], Kalman_SM)
+
+    print(al)
+    """
+    plt.figure(figsize = (12, 5))
+    plt.plot(range(300), rl.detach().numpy(), color='blue',linestyle='-')
+    plt.savefig('test.png')"""
+
+
 
 """
 class GPR_SM :

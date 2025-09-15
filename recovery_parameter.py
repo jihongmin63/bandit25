@@ -1,62 +1,62 @@
 import torch
-from multiprocessing import Pool, set_start_method, cpu_count
-from scipy.optimize import minimize
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 import pickle
+import numpy as np
 
 from variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
 from function import simulate
 from models import Kalman_SM, free_varaibles
 
+np.random.seed(0)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 
-def cross_entropy_loss(params, real_actions_list, real_rewards_list, envs):
-    res = 0
+torch.autograd.set_detect_anomaly(True)
 
-    for env, actions, rewards in enumerate(zip(envs, real_actions_list, real_rewards_list)):
-        _, _, _, _, prob = simulate(params, env, test = 1, real_actions=actions, real_rewards=rewards)
-        rest += prob
+def recover_subject(subject_idx, envs, lr=1e-2, step=500):
+    param = []
+    bound = []
+    x0 = []
+    for var_name in free_varaibles['Kalman_SM']:
+        param_val = (torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item()
+        param.append(param_val)
+        bound.append([recovery_range[var_name][0], recovery_range[var_name][1]])
+        x0.append(recovery_init[var_name])
+    param = torch.tensor(param, dtype=torch.float64)
     
-    return -res
-
-
+    recovered_x0 = []
+    for i in range(recovery_trials):
+        x = torch.nn.Parameter(torch.tensor(x0, requires_grad=True, dtype=torch.float64))
+        optimizer = torch.optim.Adam([x], lr=lr)
+        al, rl, _, _ = simulate(param, envs[i], Kalman_SM)
+        
+        for time in range(step):
+            optimizer.zero_grad()
+            _, _, _, _, prob = simulate(x, envs[i], Kalman_SM, test=1, real_actions=al, real_rewards=rl)
+            loss = -prob.sum()
+            loss.backward(retain_graph=True)
+            optimizer.step()
+            
+            with torch.no_grad():
+                for j, p in enumerate(x):
+                    p.clamp_(min=bound[j][0], max=bound[j][1])
+        
+        recovered_x0.append(x.detach())
+    
+    return [param, recovered_x0]
 
 if __name__ == "__main__":
     with open("envs/restless_envs", 'rb') as f:
         restless_envs = pickle.load(f)
     
-    name = 'Kalman_SM on restless envs'
     envs = restless_envs[1]
-    
-    lr, step = 1e-4, 1000
 
-    initial_params_list, recovered_params_list = [], []
-    for _ in range(recovery_subjects):
-        param = []
-        x0 = []
-        #bounds = []
-        for var_name in free_varaibles['Kalman_SM'] :
-                param.append((torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item())
-                #bounds.append(recovery_range[var_name])
-                x0.append(recovery_init[var_name])
-        #initial_params_list.append(param)
-        param = torch.tensor(param)
-        x0 = torch.tensor(x0, requires_grad=True)
+    recovered_params_list = []
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(recover_subject, idx, envs) for idx in range(recovery_subjects)]
+        for f in tqdm(as_completed(futures), total=recovery_subjects):
+            recovered_params_list.append(f.result())
 
-        real_actions, real_rewards = [], []
-        for i in range(recovery_trials) :
-            al, rl, _, _, _ = simulate(param, envs[i], Kalman_SM)
-            real_actions.append(al)
-            real_rewards.append(rl)
-        
-        for _ in range(step) :
-            loss = cross_entropy_loss(x0, real_actions, real_rewards, envs[:recovery_trials])
-            x0.grad.zero_()
-            loss.backward()
-            with torch.no_grad() :
-                x0 -= lr * x0.grad()
-
-        #recovered = minimize(cross_entropy_loss, x0=x0, bounds=bounds, args = (real_actions, real_rewards, envs[:recovery_trials]))
-        recovered_params_list.append(x0)
-
-        with open(f"params/parameter_recovery/recovered_params_{name}.json", 'wb') as f:
-            pickle.dump([initial_params_list, recovered_params_list], f)
+    with open("params/restless_params", 'wb') as f:
+        pickle.dump(recovered_params_list, f)

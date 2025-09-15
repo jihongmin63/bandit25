@@ -23,3 +23,6 @@ envs/restless_envs
 envs/stationary_noncor_envs
 envs/stationary_cor_1D_envs
 envs/stationary_cor_2D_envs
+
+recovery_log.txt
+test.txt

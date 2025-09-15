@@ -8,7 +8,7 @@ from scipy.stats import mvn
 def select_arm(n, env, noise) :
     """
         Args:
-            n (int) : the index of arm
+            n : one-hot vector expressing idx
             env (float array) : means of arms
             noise (float) : observational noise
 
@@ -16,9 +16,10 @@ def select_arm(n, env, noise) :
             (float) : the output of selected arm w/ noise
 
     """
-    return env[n] + torch.normal(0, noise)
+    #return (env * n).sum() + torch.normal(torch.tensor(0.0), noise)
+    return env * n + torch.normal(torch.tensor(0.0), noise)
 
-def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None):
+def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None, eps = 1e-12):
     """
         It is utility function that modify the original value
 
@@ -34,12 +35,19 @@ def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None):
             util (int or array) : the modified value 
     """
     if xi :
-        x -= xi * prev_result
-    return torch.pow(torch.maximum(x, 0), risk_plus) - loss * torch.pow(torch.maximum(-x, 0), risk_minus)
+        return torch.pow(torch.clamp(x-xi * prev_result, min=eps), risk_plus) - loss * torch.pow(torch.clamp(-x+xi * prev_result, min=eps), risk_minus)
+    return torch.pow(torch.clamp(x, min=eps), risk_plus) - loss * torch.pow(torch.clamp(-x, min=eps), risk_minus)
+
+def unravel_index(index, shape):
+    result = []
+    for dim in reversed(shape):
+        result.append(index % dim)
+        index = index // dim
+    return tuple(reversed(result))
 
 # loss, risk, mean, noise, theta1, theta2, kappa, rho, beta1, beta2, phi2, phi3
 
-def simulate(variables, env, model, test = 0, real_actions = None, real_rewards = None) :
+def simulate(variables, env, model, test = 0, real_actions = None, real_rewards = None, debug = 0, debug2 = 0) :
     """
         the function simulating agent's behavior on given strategy and environment
 
@@ -61,44 +69,46 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
             prob (float) : log-likelihood
     """
 
+
     al, rl = [], []
     result, switch, directed, random = 0, 0, 0, 0
-    prob, epsilon = 0, 1e-12
+    prob, epsilon = 0.0, 1e-8
 
     model = model(variables, env)
     #model.set()
 
     for t in range(env.horizon):
-        temptation = model.calculate(t)
-        values = torch.exp(temptation - torch.max(temptation))
-        values = values / torch.sum(values)
+        temptation = model.calculate(t, debug = debug2)
+        action = torch.softmax(temptation, dim=-1)
+        if test :
+            ori_action = real_actions[t]
 
-        if not test :
-            if (torch.isnan(values).any()) :
-                print(temptation)
-            action = torch.multinomial(values, num_samples=1)
-            if env.stationary :
-                reward = select_arm(action, env.env.flatten(), env.noise)
-            else :
-                reward = select_arm(action, env.env[t].flatten(), env.noise)
-            
-            action = torch.unravel_index(action, env.structure)
+        if env.stationary :
+            reward = select_arm(action, env.env.flatten(), env.noise)
         else :
-            action = real_actions[t]
-            reward = real_rewards[t]
+            reward = select_arm(action, env.env[t].flatten(), env.noise)
 
+        if debug :
+            print("Temptation : ", temptation)
+            print("Prob ", action)
+            print("Reward ", reward)
+            if test : 
+                print("Action ", ori_action)
+                print("Loss ", (action * ori_action).sum())
+            else : print("Action ", action)
         model.update(action, reward)
-        
-        al.append(action)
+        if debug or debug2 : print("")
+
+        al.append(temptation)
         rl.append(reward)
         result += reward
-        prob += torch.log(values[action] + epsilon)
+        if test :
+            prob = prob + ori_action * torch.log_softmax(temptation,dim=-1)
 
-    for t in range(1, horizon) :
-        if(al[t-1] != al[t]) :
-            switch += 1 / (horizon-1)
-
-    return al, rl, result, switch, prob
+    if test :
+        return al, rl, result, switch, prob
+    else :
+        return al, rl, result, switch
 
 """
     

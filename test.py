@@ -1,41 +1,36 @@
-import numpy as np
-import json
-import multiprocessing as mp
-from tqdm import tqdm
+import torch
+from multiprocessing import Pool, set_start_method, cpu_count
 from scipy.optimize import minimize
-import pickle
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-from variable import Env
-from models import Kalman_SM, Kalman_PMU, Decay_SM
-from function import prospect, select_arm, simulate
+import pickle
+
+from variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
+from function import simulate
+from models import Kalman_SM, free_varaibles
+import numpy as np
+
+np.random.seed(0)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 
 with open("envs/restless_envs", 'rb') as f:
     restless_envs = pickle.load(f)
+    
+name = 'Kalman_SM on restless envs'
+envs = restless_envs[1]
 
+param = []
+for var_name in free_varaibles['Kalman_SM'] :
+    param.append((torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item())
 
-test_env = restless_envs[1][:50]
+param = torch.tensor(param, dtype=torch.float64)
+print(free_varaibles['Kalman_SM'])
+print("[", param, "]")
 
-# loss 정의
-def objective(x) :
-    res = 0
-    for env in test_env :
-        _, _, r, _, _ = simulate(x, env, Kalman_PMU)
-        res += r
-    return -res
+print("<Simulation>")
+al, rl, _, _ = simulate(param, envs[0], Kalman_SM, debug = 1, debug2=1)
 
-# self.loss, self.risk, self.mean, self.noise, self.theta1, self.theta2, self.kappa, self.alpha, self.rho, self.beta1, self.beta2, self.phi2, self.phi3
-#sample = [1, 1, 0, 1000, 0.33, 0, 1, 0, 0, 0.54, 0.54, 0, 0]
-#initial_guess = [1, 1, 50, 4, 10, 10, 0.5, 0.5, 1, 30, 30, 20, 20]  
-#bounds = [(0, 5), (0, 2), (-50, 50), (0, float('inf')), (0, 100), (0, 100), (0, 1), (0, 1), (0, 30), (-5, 5), (-5, 5), (0, 100), (0, 100)] 
-initial_guess = [0.22, 0.61, 0, 4]
-bounds = [(0, 5), (0, 2), (-50, 50), (0, 100)]
-result = minimize(objective, initial_guess, bounds=bounds)
-print(result.x) 
-
-# simulate
-al, rl, _, _, _ = simulate(result.x, test_env[0], Kalman_PMU)
-#print(al)
-
-plt.plot(range(len(rl)), rl, linestyle='-')
-plt.savefig('simulation.png')
+print("<TEST>")
+_, _, _, _, prob = simulate(param, envs[0], Kalman_SM, test = 1, real_actions=al, real_rewards=rl, debug = 1, debug2=1)
+print("[Prob] ", prob)
