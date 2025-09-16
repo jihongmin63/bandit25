@@ -1,5 +1,4 @@
 import torch
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import pickle
 import numpy as np
@@ -26,12 +25,14 @@ def recover_subject(subject_idx, envs, lr=1e-2, step=500):
     param = torch.tensor(param, dtype=torch.float64)
     
     recovered_x0 = []
-    for i in range(recovery_trials):
+    # trial loop tqdm
+    for i in tqdm(range(recovery_trials), desc=f"Subject {subject_idx}", leave=False):
         x = torch.nn.Parameter(torch.tensor(x0, requires_grad=True, dtype=torch.float64))
         optimizer = torch.optim.Adam([x], lr=lr)
         al, rl, _, _ = simulate(param, envs[i], Kalman_SM)
         
-        for time in range(step):
+        # step loop tqdm
+        for time in tqdm(range(step), desc=f"Trial {i}", leave=False):
             optimizer.zero_grad()
             _, _, _, _, prob = simulate(x, envs[i], Kalman_SM, test=1, real_actions=al, real_rewards=rl)
             loss = -prob.sum()
@@ -53,10 +54,10 @@ if __name__ == "__main__":
     envs = restless_envs[1]
 
     recovered_params_list = []
-    with ProcessPoolExecutor() as executor:
-        futures = [executor.submit(recover_subject, idx, envs) for idx in range(recovery_subjects)]
-        for f in tqdm(as_completed(futures), total=recovery_subjects):
-            recovered_params_list.append(f.result())
+    # subject loop tqdm
+    for idx in tqdm(range(recovery_subjects), desc="Subjects"):
+        result = recover_subject(idx, envs)
+        recovered_params_list.append(result)
 
     with open("params/restless_params", 'wb') as f:
         pickle.dump(recovered_params_list, f)
