@@ -19,12 +19,13 @@ with open("envs/restless_envs", 'rb') as f:
     
 name = 'Kalman_SM on restless envs'
 envs = restless_envs[1]
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 param = []
 for var_name in free_varaibles['Kalman_SM'] :
     param.append((torch.rand(1) * (recovery_range[var_name][1] - recovery_range[var_name][0]) + recovery_range[var_name][0]).item())
 
-param = torch.tensor(param, dtype=torch.float64)
+param = torch.tensor(param, dtype=torch.float64).to(device)
 print(free_varaibles['Kalman_SM'])
 print("[", param, "]")
 

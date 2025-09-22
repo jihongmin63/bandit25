@@ -4,6 +4,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import mvn
         
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def select_arm(n, env, noise) :
     """
@@ -16,8 +17,9 @@ def select_arm(n, env, noise) :
             (float) : the output of selected arm w/ noise
 
     """
-    #return (env * n).sum() + torch.normal(torch.tensor(0.0), noise)
-    return env * n + torch.normal(torch.tensor(0.0), noise)
+    reward = (env * n).sum()
+    return reward + (torch.randn(1) * noise)[0]
+    
 
 def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None, eps = 1e-12):
     """
@@ -79,17 +81,20 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
 
     for t in range(env.horizon):
         temptation = model.calculate(t, debug = debug2)
-        action = torch.softmax(temptation, dim=-1)
+        probs = torch.softmax(temptation, dim=-1)
         if test :
             ori_action = real_actions[t]
 
+        with torch.no_grad() :
+            idx = torch.multinomial(probs, num_samples=1, replacement=True)[0]
+            action = torch.nn.functional.one_hot(idx, num_classes=len(probs)).float()
+        
         if env.stationary :
             reward = select_arm(action, env.env.flatten(), env.noise)
         else :
             reward = select_arm(action, env.env[t].flatten(), env.noise)
 
         if debug :
-            print("Temptation : ", temptation)
             print("Prob ", action)
             print("Reward ", reward)
             if test : 
@@ -99,11 +104,11 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
         model.update(action, reward)
         if debug or debug2 : print("")
 
-        al.append(temptation)
+        al.append(action)
         rl.append(reward)
         result += reward
         if test :
-            prob = prob + ori_action * torch.log_softmax(temptation,dim=-1)
+            prob = prob + ori_action * torch.log_softmax(temptation, dim=-1)
 
     if test :
         return al, rl, result, switch, prob

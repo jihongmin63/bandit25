@@ -12,6 +12,8 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class Parabolic_Cylinder(torch.autograd.Function):
     @staticmethod
     def forward(ctx, v: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
