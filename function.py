@@ -82,24 +82,25 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
     for t in range(env.horizon):
         temptation = model.calculate(t, debug = debug2)
         probs = torch.softmax(temptation, dim=-1)
-        if test :
-            ori_action = real_actions[t]
 
-        with torch.no_grad() :
-            idx = torch.multinomial(probs, num_samples=1, replacement=True)[0]
-            action = torch.nn.functional.one_hot(idx, num_classes=len(probs)).float()
-        
-        if env.stationary :
-            reward = select_arm(action, env.env.flatten(), env.noise)
-        else :
-            reward = select_arm(action, env.env[t].flatten(), env.noise)
+        if test :
+            action = real_actions[t]
+            reward = real_rewards[t]
+        else : 
+            with torch.no_grad() :
+                idx = torch.multinomial(probs, num_samples=1, replacement=True)[0]
+                action = torch.nn.functional.one_hot(idx, num_classes=len(probs)).float()
+            if env.stationary :
+                reward = select_arm(action, env.env.flatten(), env.noise)
+            else :
+                reward = select_arm(action, env.env[t].flatten(), env.noise)
 
         if debug :
-            print("Prob ", action)
+            print("Prob ", probs)
             print("Reward ", reward)
             if test : 
-                print("Action ", ori_action)
-                print("Loss ", (action * ori_action).sum())
+                print("Action ", action)
+                print("Prob_of_Action ", (probs * action).sum())
             else : print("Action ", action)
         model.update(action, reward)
         if debug or debug2 : print("")
@@ -108,7 +109,7 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
         rl.append(reward)
         result += reward
         if test :
-            prob = prob + ori_action * torch.log_softmax(temptation, dim=-1)
+            prob = prob + (action * torch.log_softmax(temptation, dim=-1)).sum()
 
     if test :
         return al, rl, result, switch, prob

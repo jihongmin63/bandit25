@@ -14,7 +14,7 @@ torch.cuda.manual_seed_all(42)
 torch.autograd.set_detect_anomaly(True)
 
 
-def recover_subject(subject_idx, envs, lr=1e-2, step=500):
+def recover_subject(subject_idx, envs, lr=1e-1, step=100):
     param = []
     bound = []
     x0 = []
@@ -30,13 +30,13 @@ def recover_subject(subject_idx, envs, lr=1e-2, step=500):
     param = torch.tensor(param, dtype=torch.float64)
 
     recovered_x0 = []
-    for i in tqdm(range(recovery_trials), desc=f"Subject {subject_idx} | Trials", leave=False):
+    for i in tqdm(range(30), desc=f"Subject {subject_idx} | Trials", leave=False):
         x = torch.nn.Parameter(
             torch.tensor(x0, requires_grad=True, dtype=torch.float64)
         )
         optimizer = torch.optim.Adam([x], lr=lr)
         al, rl, _, _ = simulate(param, envs[i], Kalman_SM)
-
+        print(f"Subject {subject_idx}, original parameter {param}")
         for time in tqdm(range(step), desc=f"Trial {i} | Steps", leave=False):
             optimizer.zero_grad()
             _, _, _, _, prob = simulate(
@@ -49,6 +49,8 @@ def recover_subject(subject_idx, envs, lr=1e-2, step=500):
             with torch.no_grad():
                 for j, p in enumerate(x):
                     p.clamp_(min=bound[j][0], max=bound[j][1])
+            print(f"step {time} x : {x}")
+            print(f"loss : {loss}")
 
         recovered_x0.append(x.detach())
 
@@ -63,8 +65,8 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     recovered_params_list = []
-    for idx in tqdm(range(recovery_subjects), desc="Subjects"):
+    for idx in tqdm(range(20), desc="Subjects"):
         recovered_params_list.append(recover_subject(idx, envs))
 
-    with open("params/restless_params", "wb") as f:
+    with open("params/Restless_params", "wb") as f:
         pickle.dump(recovered_params_list, f)

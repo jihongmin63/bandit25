@@ -44,7 +44,8 @@ class Parabolic_Cylinder(torch.autograd.Function):
         return grad_v * grad_output, grad_x * grad_output
     
 def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
-    def Helper(r, c = (mu - xi * reward) / sigma, log = 0) :
+    c = (mu - xi * reward) / sigma
+    def Helper(r, c, log = 0) :
         """
         Helper function calculating distorted sigma
         Args :
@@ -58,7 +59,7 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
         v1 = torch.pow(sigma, r)
         v2 = torch.sqrt(torch.tensor(2 * torch.pi, device=xi.device, dtype=r.dtype))
         v3 = torch.exp(- (c*c) / 4)
-        v4 = torch.exp(torch.lgamma(r+1))
+        v4 = torch.exp(torch.lgamma((r+1)))
         v5 = Parabolic_Cylinder.apply(-r-1, -c)
         if (log) :
             print(" r, c : ", r, c)
@@ -67,14 +68,17 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
             print(" v3 : ", v3)
             print(" v4 : ", v4)
             print(" v5 : ", v5)
-        return v1 * v3 * v4 * v5 / v2
-    var = Helper(2 * risk_plus) + loss * loss * Helper(2 * risk_minus) - torch.square(Helper(risk_plus) - loss * Helper(risk_minus))
+        return v1 * v3 * v4 * v5  / v2
+    var = Helper(2 * risk_plus, c) + loss * loss * Helper(2 * risk_minus, -c) - torch.square(Helper(risk_plus, c) - loss * Helper(risk_minus, -c))
 
     if torch.any(var <= 0):
         #var = Helper(2 * risk_plus, log = 1) + loss * loss * Helper(2 * risk_minus, log = 1) - torch.square(Helper(risk_plus, log = 1) - loss * Helper(risk_minus, log = 1))
-        print("<",Helper(2 * risk_plus, log = 1),">")
-        print("<",loss * loss * Helper(2 * risk_minus, log = 1),">")
-        print("<",torch.square(Helper(risk_plus, log = 1) - loss * Helper(risk_minus, log = 1)),">")
+        print("<",Helper(2 * risk_plus, c, log = 1),">")
+        print("<",loss * loss * Helper(2 * risk_minus, c, log = 1),">")
+        print("<",Helper(risk_plus, c, log = 1),">")
+        print("<",loss * Helper(risk_minus, c, log = 1),">")
+        
+        print("<", torch.square(Helper(risk_plus, c) - loss * Helper(risk_minus, c)),">")
         raise ValueError("negative variance")
     
     return var
