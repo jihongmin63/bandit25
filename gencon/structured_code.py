@@ -15,7 +15,10 @@ class Belief :
 		self.sigma = self.init_noise.expand(self.size).clone()
 		self.preservation = torch.zeros(self.size, dtype=self.init_mean.dtype, device=self.init_mean.device)
 		self.prev_reward = 0
-	def update(self, stimulus) :
+	def update(self, stimulus) : 
+		#계산 효율적
+		#실제로 사용하기도 하고
+		#ideal implementation에선 동일
 		if stimulus.sum() != 0 :
 			nonzero_idx = torch.nonzero(stimulus, as_tuple=False).squeeze()
 			action = torch.nn.functional.one_hot(nonzero_idx, num_classes=stimulus.size(0)).sum(dim=0).float()
@@ -31,11 +34,13 @@ class Belief :
 		self.prev_reward = stimulus
 		return copy.deepcopy(self)
 	def generate_response(self) :
+		#deterministically determined
 		mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, prev_result = self.prev_reward)
 		var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
 		sigma = torch.sqrt(var)
 		temp = self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 		probs = torch.softmax(temp, dim=-1)
+		#random sampled
 		idx = torch.multinomial(probs, num_samples=1, replacement=True)[0]
 		return torch.nn.functional.one_hot(idx, num_classes=len(probs)).float()
 

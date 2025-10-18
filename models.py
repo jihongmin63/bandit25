@@ -70,16 +70,9 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
             print(" v5 : ", v5)
         return v1 * v3 * v4 * v5  / v2
     var = Helper(2 * risk_plus, c) + loss * loss * Helper(2 * risk_minus, -c) - torch.square(Helper(risk_plus, c) - loss * Helper(risk_minus, -c))
-
-    if torch.any(var <= 0):
-        #var = Helper(2 * risk_plus, log = 1) + loss * loss * Helper(2 * risk_minus, log = 1) - torch.square(Helper(risk_plus, log = 1) - loss * Helper(risk_minus, log = 1))
-        print("<",Helper(2 * risk_plus, c, log = 1),">")
-        print("<",loss * loss * Helper(2 * risk_minus, c, log = 1),">")
-        print("<",Helper(risk_plus, c, log = 1),">")
-        print("<",loss * Helper(risk_minus, c, log = 1),">")
-        
-        print("<", torch.square(Helper(risk_plus, c) - loss * Helper(risk_minus, c)),">")
-        raise ValueError("negative variance")
+    
+    with torch.no_grad() :
+        var = torch.clamp(var, min=0)
     
     return var
 
@@ -109,10 +102,11 @@ class Kalman_SM :
     
     def calculate(self, t, debug = 0) :
         mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, prev_result = self.prev_reward)
-        var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
-        sigma = torch.sqrt(var)
-        if debug :
-            print(mu, var, sigma)
+        #var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
+        #sigma = torch.sqrt(var)
+        sigma = self.sigma
+        #if debug :
+            #print(mu, var, sigma)
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
     def update(self, action, reward, debug = 0) :
@@ -132,7 +126,7 @@ class Kalman_SM :
         K_t = torch.square(self.sigma) / (torch.square(self.sigma) + self.env.noise ** 2)
 
         mu_post = self.mu + action * (reward - self.mu) * K_t
-        sigma_post = self.sigma + action * torch.sqrt((1 - K_t) * torch.square(self.sigma))
+        sigma_post = (1 - action) * self.sigma + action * torch.sqrt((1 - K_t) * torch.square(self.sigma))
 
         lamb = self.env.lamb
         noise_d = self.env.noise_d
