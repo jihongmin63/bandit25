@@ -25,4 +25,14 @@ envs/stationary_cor_1D_envs
 envs/stationary_cor_2D_envs
 
 recovery_log.txt
+recovery_alpha.txt
+recovery_init_mean.txt
+recovery_init_noise.txt
+recovery_loss.txt
+recovery_phi.txt
+recovery_rho.txt
+recovery_risk_minus.txt
+recovery_risk_plus.txt
+recovery_theta.txt
+recovery_xi.txt
 test.txt

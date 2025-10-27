@@ -59,12 +59,12 @@ for time in tqdm(range(50), desc=f"Steps", leave=False):
     loss = -prob.sum()
     loss.backward(retain_graph=True)
     optimizer.step()
-
+    # bound
     with torch.no_grad():
         for j, p in enumerate(x):
             p.clamp_(min=bound[j][0], max=bound[j][1])
-    #print(f"step {time} x : {x}")
-    #print(f"loss : {loss}")
+
+    print(f"step {time}")
     for i in range(num):
         print(f"{i}th params : ", end = "")
         for j, _ in enumerate(x) :
