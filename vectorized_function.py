@@ -105,7 +105,7 @@ def vectorized_simulate(variables, envs, model, test = 0, real_actions = None, r
         rl.append(reward)
         result += reward
         if test :
-            prob = prob + (action * torch.log_softmax(temptation, dim=-1)).sum()
+            prob = prob + (action * torch.log_softmax(temptation, dim=-1)).sum(dim=-1)
 
     if test :
         return al, rl, result, switch, prob

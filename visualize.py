@@ -20,7 +20,7 @@ for idx, var in enumerate(free_varaibles['Kalman_SM']):
     orig_col, rec_col = f"original {var}", f"recovered {var}"
 
     for i in range(len(recovered_data)):
-        data.append([original_data[i][idx], recovered_data[i][idx][0]])
+        data.append([original_data[i][idx], recovered_data[i][idx]])
 
     df = pd.DataFrame(data, columns=[orig_col, rec_col])
 

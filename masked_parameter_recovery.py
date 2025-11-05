@@ -47,7 +47,7 @@ for subj in tqdm(range(num)) :
             return -prob
 
         res = minimize(objective, x0, bounds = bound[selected_idx], method = 'L-BFGS-B')
-        recovered_params[subj].append(res.x.tolist())
+        recovered_params[subj].append(res.x[0].tolist())
 
 with open(f"params/Maksed_Restless_params", "wb") as f:
     pickle.dump([original_params, recovered_params], f)

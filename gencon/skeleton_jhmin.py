@@ -6,7 +6,7 @@ class Belief :
 		return copy.deepcopy(self)
 	def generate_response(self) :
 
-class state :
+class State :
 	def __init__(self, params) :
 		self.is_finished = False
 	def update(self, response) :
@@ -57,16 +57,67 @@ def guided_run_episode(init_state, init_belief, stimuli, responses) :
 	
 	return states, beliefs, responses
 
-#loss를 belief에만 의존하게 할지
-def Loss(original_responses, beliefs, responses) :
 
-def recovery(given_responses, init_state, init_belief) :
-	#원래 data를 simulate하는 걸 각 시행마다 하게 할지
-	_, stimuli, beliefs, responses = run_episode(init_state, init_belif)
 
-	#두 종류의 recovery 방식
-	_, _, beliefs, responses = run_episode(init_state, init_belief)
-	#괜찮음.. 근데 나는 더 general하게 만들고 싶었던 거라
-	_, beliefs, responses = guided_run_episode(init_state, init_belief, stimuli, responses)
+### 25-10-29 ###
+def Loss(original_responses, beliefs) :
+	pass
 
-	return Loss(given_responses, beliefs, responses)
+def optimize(objective, loss_function, truth_param, param_init, param_condition) :
+	pass
+	return params, loss
+
+def optimize_multiple_inputs(objective, loss, truth_param, params_init_list, params_condition) :
+	pass
+	return params, loss
+
+# bound -> list of possible params
+# list of ground truth params
+def parameter_recovery(objective, loss, truth_param_list, param_init, param_condition, option = False) :
+"""
+	Input : 
+		objective 			: function gets param and outputs some behavior
+		loss 				: function calculating loss
+		truth_param_list 	: parameter list that we want to recover
+		param_init 			: initial parameter value that we starts to fit (it would be list)
+		param_condition 	: 1) set of possible values of parameters 2) parameter bound
+		option				: whether or not you want to get the behavior of recovered data
+	Output : 
+		if option ->
+			recovered_param_list 	: recovered parameter values
+			loss_list 				: loss of recovered parameter 
+			recovered_result_list 	: behavior of recovered parameter
+		else ->
+			recovered_param_list
+			loss_list 
+"""
+	truth_result_list = [objective(truth_param) for truth_param in truth_param_list]
+	recovered_param_list, recovered_loss_list = [], []
+
+	for truth_result in truth_result_list :
+		recovered_param, recovered_loss = optimize(objective, loss, truth_result, param_init, param_condition)
+		#recovered_param, recovered_loss = optimize_multiple_inputs(objective, loss, truth_result, param_init, param_condition)
+		
+		recovered_param_list.append(recovered_param)
+		loss_list.append(recovered_loss)
+
+	if option :
+		recovered_result_list = [objective(recovered_param) for recovered_param in recovered_param_list]
+		return recovered_param_list, loss_list, recovered_result_list
+	else :
+		return recovered_param_list, loss_list
+
+def model_recovery(objective_list, loss, truth_param_list_list, param_init_list, param_condition_list, option = False) :
+	# loss가 여러개? 한 개?
+	for src, (objective, truth_param_list) in enumerate(zip(objective_list, truth_param_list_list)) :
+		recovered_param_list_list, loss_list_list = [], []
+		for tgt, (param_init, param_condition) in enumerate(zip(param_init_list, param_condition_list)) :
+			recovered_param_list, loss_list = parameter_recovery(objective, loss, truth_param_list, param_init, param_condition, option = False)
+			recovered_param_list_list.append(recovered_param_list)
+			loss_list_list.append(loss_list)
+		transposed_matrix = np.array(loss_list_list).T 
+		min_loss_indices = np.argmin(transposed_matrix, axis=1).tolist()
+		res.append(np.bincount(min_loss_indices))
+	
+	return res
+		

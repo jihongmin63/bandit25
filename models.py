@@ -102,9 +102,9 @@ class Kalman_SM :
     
     def calculate(self, t, debug = 0) :
         mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, prev_result = self.prev_reward)
-        #var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
-        #sigma = torch.sqrt(var)
-        sigma = self.sigma
+        var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
+        sigma = torch.sqrt(var)
+        #sigma = self.sigma
         #if debug :
             #print(mu, var, sigma)
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)

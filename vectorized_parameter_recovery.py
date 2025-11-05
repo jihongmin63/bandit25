@@ -57,8 +57,10 @@ for time in tqdm(range(50), desc=f"Steps", leave=False):
         x, [envs[t] for t in range(num)], Vectorized_Kalman_SM, test=1, real_actions=al, real_rewards=rl
     )
     loss = -prob.sum()
-    loss.backward(retain_graph=True)
+    for j in tqdm(range(num), desc="Backwarding", position=1, leave=False):
+        loss[j].backward(retain_graph=(j != num - 1))
     optimizer.step()
+    
     # bound
     with torch.no_grad():
         for j, p in enumerate(x):
@@ -74,37 +76,3 @@ for time in tqdm(range(50), desc=f"Steps", leave=False):
 
 with open("params/Vectorized_Restless_params", "wb") as f:
     pickle.dump([params, x], f)
-
-print("Vector Recovered")
-## nan error ##
-nan_param = []
-nan_param_recovered = x0_
-print(params.size())
-for i in range(len(free_varaibles['Kalman_SM'])) :
-    nan_param.append(params[i][6][0])
-    print(x[i][6][0], end = " ")
-print("")
-
-x = torch.nn.Parameter(
-    torch.tensor(nan_param_recovered, requires_grad=True, dtype=torch.float64)
-)
-optimizer = torch.optim.Adam([x], lr=lr)
-i = 6
-al, rl, _, _ = simulate(nan_param, envs[i], Kalman_SM)
-for time in tqdm(range(50), desc=f"Steps", leave=False):
-    optimizer.zero_grad()
-    _, _, _, _, prob = simulate(
-        x, envs[i], Kalman_SM, test=1, real_actions=al, real_rewards=rl
-    )
-    loss = -prob.sum()
-    loss.backward(retain_graph=True)
-
-    optimizer.step()
-
-    with torch.no_grad():
-        for j, p in enumerate(x):
-            p.clamp_(min=bound[j][0], max=bound[j][1])
-    #print(f"step {time} x : {x}")
-    #print(f"loss : {loss}")
-print("recovered")
-print(x)

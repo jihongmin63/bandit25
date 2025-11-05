@@ -93,7 +93,8 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward):
           - torch.square(Helper(risk_plus, c) - loss*Helper(risk_minus, -c))
 
     if torch.any(var <= 0):
-        var = torch.clamp(var, min=0)
+        with torch.no_grad() :
+            var = torch.clamp(var, min=0)
     return var
 
 
