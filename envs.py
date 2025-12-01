@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 import pickle
-from variable import Env, mean, env_name
+from .variable import Env, mean, env_name
 
 variance = 10
 noise = 10
@@ -11,12 +11,14 @@ num = 100
 torch.manual_seed(42)
 
 # stationary, non-correlated
-stationary_noncor_envs = [[] for _ in range(3)]
-for i in range(3) :
-    for _ in range(100) :
-        e = Env(env = torch.normal(mean[i], noise, size=(10,)), stationary = 1, structure = (10,), horizon = horizon, mean = mean[i], noise = noise, name = f"stationary_noncor_{env_name[i]}")
-        stationary_noncor_envs[i].append(e)
-
+def stationary() :
+    stationary_noncor_envs = [[] for _ in range(3)]
+    for i in range(3) :
+        for _ in range(100) :
+            e = Env(env = torch.normal(mean[i], noise, size=(10,)), stationary = 1, structure = (10,), horizon = horizon, mean = mean[i], noise = noise, name = f"stationary_noncor_{env_name[i]}")
+            stationary_noncor_envs[i].append(e)
+    return stationary_noncor_envs
+"""
 with open("envs/stationary_noncor_envs", 'wb') as f:
     pickle.dump(stationary_noncor_envs, f)
 
@@ -62,7 +64,7 @@ for i in range(10) :
 plt.xticks([i for i in range(10)])
 plt.yticks([])
 plt.savefig(f'images/sample env_{stationary_noncor_envs[1][0].name}.png')
-
+"""
 """
 # corelated 1D
 d, l = 10, [1, 2]

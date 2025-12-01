@@ -56,6 +56,7 @@ for time in tqdm(range(50), desc=f"Steps", leave=False):
     _, _, _, _, prob = vectorized_simulate(
         x, [envs[t] for t in range(num)], Vectorized_Kalman_SM, test=1, real_actions=al, real_rewards=rl
     )
+    print(prob.requires_grad)
     loss = -prob.sum()
     for j in tqdm(range(num), desc="Backwarding", position=1, leave=False):
         loss[j].backward(retain_graph=(j != num - 1))

@@ -106,6 +106,7 @@ def simulate(variables, env, model, test = 0, real_actions = None, real_rewards 
         if debug or debug2 : print("")
 
         al.append(action)
+        print(f"requires_grad: {action.requires_grad}")
         rl.append(reward)
         result += reward
         if test :

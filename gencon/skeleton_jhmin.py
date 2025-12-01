@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 
 class Belief :
 	def __init__(self, params) :
@@ -63,61 +64,71 @@ def guided_run_episode(init_state, init_belief, stimuli, responses) :
 def Loss(original_responses, beliefs) :
 	pass
 
-def optimize(objective, loss_function, truth_param, param_init, param_condition) :
+def optimize(simulate, loss_function, truth_reward_distribution, param_init, param_condition) :
 	pass
 	return params, loss
 
-def optimize_multiple_inputs(objective, loss, truth_param, params_init_list, params_condition) :
+def optimize_multiple_inputs(simulate, loss, truth_reward_distribution, params_init_list, params_condition) :
 	pass
 	return params, loss
 
 # bound -> list of possible params
 # list of ground truth params
-def parameter_recovery(objective, loss, truth_param_list, param_init, param_condition, option = False) :
-"""
+def parameter_recovery(simulation_function, loss, truth_param_list, param_init, param_condition, return_distribution = False) :
+	"""
 	Input : 
-		objective 			: function gets param and outputs some behavior
-		loss 				: function calculating loss
+		simulate 			: function gets param, and outputs P(r) list
+		loss 				: function calculating loss from distributions of rewards (e.g. cross entropy loss)
 		truth_param_list 	: parameter list that we want to recover
 		param_init 			: initial parameter value that we starts to fit (it would be list)
 		param_condition 	: 1) set of possible values of parameters 2) parameter bound
 		option				: whether or not you want to get the behavior of recovered data
 	Output : 
 		if option ->
-			recovered_param_list 	: recovered parameter values
-			loss_list 				: loss of recovered parameter 
-			recovered_result_list 	: behavior of recovered parameter
+			recovered_param_list 			: recovered parameter values
+			loss_list 						: loss of recovered parameter 
+			recovered_reward_distributions 	: behavior of recovered parameter (here, we mean P(r) list)
 		else ->
 			recovered_param_list
 			loss_list 
-"""
-	truth_result_list = [objective(truth_param) for truth_param in truth_param_list]
+	"""
+	truth_reward_distributions = [simulation_function(truth_param) for truth_param in truth_param_list]
 	recovered_param_list, recovered_loss_list = [], []
 
-	for truth_result in truth_result_list :
-		recovered_param, recovered_loss = optimize(objective, loss, truth_result, param_init, param_condition)
+	for truth_reward_distribution in truth_reward_distributions :
+		"""each truth_reward_distribution means [P(r_1), P(r_2), ...]"""
+
+		recovered_param, recovered_loss = optimize(simulation_function, loss, truth_reward_distribution, param_init, param_condition)
 		#recovered_param, recovered_loss = optimize_multiple_inputs(objective, loss, truth_result, param_init, param_condition)
 		
 		recovered_param_list.append(recovered_param)
-		loss_list.append(recovered_loss)
+		recovered_loss_list.append(recovered_loss)
 
-	if option :
-		recovered_result_list = [objective(recovered_param) for recovered_param in recovered_param_list]
-		return recovered_param_list, loss_list, recovered_result_list
+	if return_distribution :
+		recovered_reward_distributions = [simulation_function(recovered_param) for recovered_param in recovered_param_list]
+		return recovered_param_list, recovered_loss_list, recovered_reward_distributions
 	else :
-		return recovered_param_list, loss_list
+		return recovered_param_list, recovered_loss_list
 
-def model_recovery(objective_list, loss, truth_param_list_list, param_init_list, param_condition_list, option = False) :
-	# loss가 여러개? 한 개?
-	for src, (objective, truth_param_list) in enumerate(zip(objective_list, truth_param_list_list)) :
-		recovered_param_list_list, loss_list_list = [], []
-		for tgt, (param_init, param_condition) in enumerate(zip(param_init_list, param_condition_list)) :
-			recovered_param_list, loss_list = parameter_recovery(objective, loss, truth_param_list, param_init, param_condition, option = False)
-			recovered_param_list_list.append(recovered_param_list)
-			loss_list_list.append(loss_list)
-		transposed_matrix = np.array(loss_list_list).T 
+
+def model_recovery(simulation_ftns, loss, truth_param_lists, param_init_list, param_condition_list, return_distribution = False) :
+	recovery_result, recovered_distribution_lists_list = []
+
+	for simulation_ftn, truth_param_list in zip(simulation_ftns, truth_param_lists) :
+		recovered_param_lists, loss_lists = [], []
+
+		for param_init, param_condition in zip(param_init_list, param_condition_list) :
+			recovered_param_list, loss_list = parameter_recovery(simulation_ftn, loss, truth_param_list, param_init, param_condition)
+
+			recovered_param_lists.append(recovered_param_list)
+			loss_lists.append(loss_list)
+		
+		transposed_matrix = np.array(loss_lists).T 
 		min_loss_indices = np.argmin(transposed_matrix, axis=1).tolist()
-		res.append(np.bincount(min_loss_indices))
+		recovery_result.append(np.bincount(min_loss_indices))
 	
-	return res
+	if return_distribution :
+		return recovery_result, recovered_distribution_lists_list
+	else : 
+		return recovery_result
 		

@@ -102,6 +102,7 @@ def vectorized_simulate(variables, envs, model, test = 0, real_actions = None, r
         model.update(action, reward)
 
         al.append(action)
+        print(temptation.requires_grad)
         rl.append(reward)
         result += reward
         if test :
