@@ -31,3 +31,17 @@ The detailed version follows:
 - $\sigma_{i,t}^* = \sqrt{Var[u(x)]} = \sqrt{\int_{-\infty}^\infty \frac{1}{\hat{\sigma_{i,t}}\sqrt{2\pi}}e^{-\frac{1}{2}(\frac{x-\hat{\mu_{i,t}}}{\hat{\sigma_{i,t}}})^2} \cdot [u(x) - \mathbb{E}[u(x)]]^2 dx} = \sqrt{\Phi_{2\alpha}(X) + \lambda^2 \cdot \Phi_{2\beta}(X) - (\Phi_\alpha(X) - \lambda \cdot \Phi_\beta (X))^2}$
     - $\Phi_r(x) := \frac{\sigma^r}{\sqrt{2\pi}} e^{-\frac{1}{4}x^2}\Gamma(r+1)D_{-r-1}(-x)$
 	- $X := (\hat{\mu_{i, t}}^{pre} - \xi \cdot r_t) / \hat{\sigma_{i, t}}^{pre}$ 
+
+## 3. Project structure
+
+| Path | Contents |
+|---|---|
+| `src/bandit25/` | Core package: environments, models, simulation |
+| `scripts/recovery/` | Parameter recovery experiments and their plots |
+| `scripts/loss_sanity/` | Loss sanity checks for individual parameters |
+| `notebooks/` | Exploratory notebooks |
+| `results/figures/`, `results/params/` | Generated figures and pickled recovery results |
+| `data/`, `logs/` | Generated environments and logs (not tracked) |
+
+Install once with `pip install -e .`, then run scripts from the repository root,
+e.g. `python scripts/recovery/vectorized_parameter_recovery.py`.
