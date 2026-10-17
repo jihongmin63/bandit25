@@ -5,8 +5,8 @@ from bandit25.variable import Env, mean, env_name, noise, horizon
 lamb, noise_o, noise_d = 0.9836, 4, 2.8
 
 # Draws are made in the same order as the original envs.py (fb038da), so
-# torch.manual_seed(42); stationary(); restless() reproduces data/envs/*.
-# scripts/make_envs.py does exactly that.
+# torch.manual_seed(42); stationary(); restless("original") reproduces the
+# environments used before c165b65. scripts/make_envs.py seeds 42 the same way.
 
 # stationary, non-correlated
 def stationary() :
@@ -18,14 +18,14 @@ def stationary() :
     return stationary_noncor_envs
 
 
-def restless(process = "original") :
+def restless(process = "daw") :
     """
         Args:
             process (str) : how the bandit means drift
-                'original' : as in data/envs/restless_envs; the drift also takes the observation noise
-                    mu_post ~ N(mu_pre, noise_o),  mu_pre' ~ N(lamb * mu_post + (1 - lamb) * theta, noise_d)
-                'daw' : the process the Kalman model assumes (Daw et al., 2006)
+                'daw' : the process the Kalman model assumes (Daw et al., 2006), step SD noise_d = 2.8
                     mu_pre' ~ N(lamb * mu_pre + (1 - lamb) * theta, noise_d)
+                'original' : the environments used before; the drift also takes the observation noise (step SD ~4.8)
+                    mu_post ~ N(mu_pre, noise_o),  mu_pre' ~ N(lamb * mu_post + (1 - lamb) * theta, noise_d)
 
         Returns:
             (list) : restless_envs[i] holds 100 envs whose means drift around mean[i]; env.env is (300, 4)

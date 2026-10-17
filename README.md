@@ -1,8 +1,8 @@
 ## 1.	Task
 We use four-armed bandit task with 300 times of selection. Each bandit faces a decaying random walk as follows:
 
-$\mu_{i,t}^{post} = N(\mu_{i,t}^{pre}, \sigma_o), \quad \mu_{i,t}^{pre}=\lambda\cdot\mu_{i,t}^{post}+(1-\lambda)\cdot\varphi + \nu$ with $\nu\sim N(0,\sigma_D)$.
-The reward of bandit i at step t is randomly sampled from $\mu_{i,t}^{pre}$ with standard derivation $\sigma_o$. From the reward, next $\mu_{i,t}^{pre}$ is determined with decaying parameter $\lambda$, decaying center $\varphi$ and random walk $\nu$. We use predetermined value from previous studies; $\lambda=0.9836,\varphi=50,\sigma_o=4, \sigma_D=2.8$. To check prospect theory, initial bandit’s mean $\mu_{i,t}^{pre}$ is randomly sampled from $N(0,10)$.
+$\mu_{i,t+1}=\lambda\cdot\mu_{i,t}+(1-\lambda)\cdot\varphi + \nu$ with $\nu\sim N(0,\sigma_D)$, and the reward $r_t \sim N(\mu_{c_t,t}, \sigma_o)$.
+The reward of the chosen bandit is sampled around its current mean with standard deviation $\sigma_o$, and every mean decays toward the center $\varphi$ with decaying parameter $\lambda$ plus the random walk $\nu$ (Daw et al., 2006), which is exactly what the Kalman filter below assumes. We use predetermined value from previous studies; $\lambda=0.9836,\sigma_o=4, \sigma_D=2.8$. To check prospect theory, the centers are $\varphi = 100, 0, -100$ (`pos`, `mix`, `neg`) and the initial means are sampled from $N(\varphi,10)$; the recovery scripts use the `mix` environments.
 
 <img width="1200" height="500" alt="Image" src="https://github.com/user-attachments/assets/9765887e-f2c7-43b2-9551-fe909464f7ec" />
 
@@ -65,13 +65,13 @@ $\lambda_{env}$, $\theta_{env}$ (the decay center, $\varphi$ in §1), $\sigma_o$
 Install once with `pip install -e .`, then run scripts from the repository root:
 
 ```bash
-python scripts/make_envs.py                               # data/envs/ (seed 42, same draws as the original envs.py)
+python scripts/make_envs.py                               # data/envs/ (seed 42)
 python scripts/recovery/vectorized_parameter_recovery.py  # needs data/envs/restless_envs
 python scripts/recovery/vectorized_visualize.py
 python scripts/loss_sanity/loss_sanity.py theta           # any free parameter; --grid 50 by default
 pytest
 ```
 
-`python scripts/make_envs.py --process daw` writes `data/envs/restless_envs_daw` instead, whose means drift
-as the Kalman model assumes ($\mu' \sim N(\lambda_{env}\mu + (1-\lambda_{env})\theta_{env}, \sigma_D)$). In the default
-(original) environments the drift also takes the observation noise, so its step SD is about 4.8 rather than $\sigma_D = 2.8$.
+`python scripts/make_envs.py --process original` writes `data/envs/restless_envs_original` instead: the environments
+used before c165b65 (same draws as the original envs.py), where the drift also takes the observation noise, so its
+step SD is about 4.8 rather than $\sigma_D = 2.8$.

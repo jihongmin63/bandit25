@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 from bandit25.envs import stationary, restless
 
 parser = argparse.ArgumentParser(description="Generate data/envs/* and the sample env figures")
-parser.add_argument("--process", choices=["original", "daw"], default="original",
+parser.add_argument("--process", choices=["daw", "original"], default="daw",
                     help="restless drift process, see bandit25.envs.restless")
 args = parser.parse_args()
-suffix = "" if args.process == "original" else f"_{args.process}"
+suffix = "" if args.process == "daw" else f"_{args.process}"
 
-# same seed and order as the original envs.py, so the files match the ones already in use
+# same seed and order as the original envs.py; --process original rebuilds the old environments
 torch.manual_seed(42)
 stationary_noncor_envs = stationary()
 restless_envs = restless(args.process)
