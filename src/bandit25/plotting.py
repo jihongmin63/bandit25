@@ -91,8 +91,8 @@ def plot_fit(table, names, ranges, path, chance=0.25):
     ax = axes[len(names)]
     p = np.sort(table["p_choice"].to_numpy())
     ax.bar(np.arange(len(p)), p, color='tab:blue')
-    ax.axhline(chance, color='gray', linestyle='--', linewidth=0.8)
-    ax.text(0, chance, " chance", va='bottom', fontsize=8, color='gray')
+    ax.axhline(chance, color='gray', linestyle='--', linewidth=0.8, label="chance")
+    ax.legend(loc='upper left', fontsize=8)
     ax.set_ylim(0, 1)
     ax.set_xticks([])
     ax.set_xlabel("subjects (sorted)")

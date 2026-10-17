@@ -7,7 +7,7 @@ import torch
 
 from bandit25.data import load_choices, task_envs
 from bandit25.envs import lamb, noise_o, noise_d
-from bandit25.fitting import fit, initial_params
+from bandit25.fitting import fit, initial_params, sample_params
 from bandit25.plotting import plot_fit, plot_recovery
 from bandit25.variable import recovery_range
 from bandit25.vectorized_models import free_variables
@@ -19,10 +19,14 @@ parser.add_argument("--noise", type=float, default=noise_o, help="observation no
 parser.add_argument("--noise-d", type=float, default=noise_d, help="drift noise of the task (sigma_d)")
 parser.add_argument("--lamb", type=float, default=lamb, help="decay of the arm means (lambda)")
 parser.add_argument("--max-eval", type=int, default=200, help="likelihood evaluations of L-BFGS")
+parser.add_argument("--starts", type=int, default=1,
+                    help="fits per subject: the first from recovery_init, the others from random points; the best is kept")
+parser.add_argument("--seed", type=int, default=0, help="seed of the random starting points")
 parser.add_argument("--out", help="output directory (default: results/fits/<csv name>)")
 parser.add_argument("--true", help="CSV of true parameters (simulated data): also plots recovery")
 args = parser.parse_args()
 
+torch.manual_seed(args.seed)
 out = args.out or os.path.join("results/fits", os.path.splitext(os.path.basename(args.csv))[0])
 os.makedirs(out, exist_ok=True)
 names = free_variables['Kalman_SM']
@@ -33,6 +37,13 @@ envs = task_envs(n, horizon, args.center, noise=args.noise, noise_d=args.noise_d
 print(f"{n} subjects x {horizon} trials from {args.csv}")
 
 x, log_lik = fit(initial_params(names, n), names, envs, actions, rewards, max_eval=args.max_eval, desc="Fitting")
+for start in range(1, args.starts):
+    # a parameter pushed to a bound can get stuck there (the sigmoid is flat), so retry from random points
+    x_new, log_lik_new = fit(sample_params(names, n), names, envs, actions, rewards, max_eval=args.max_eval,
+                             desc=f"Start {start + 1}/{args.starts}")
+    better = log_lik_new > log_lik
+    x[:, better], log_lik[better] = x_new[:, better], log_lik_new[better]
+    print(f"start {start + 1}: {better.sum().item()} subjects improved")
 
 table = pd.DataFrame(x[:, :, 0].T.numpy(), columns=names)
 table.insert(0, "subject", subjects)
