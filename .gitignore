@@ -1,37 +1,14 @@
-params/simulated_rewards_over_strategies.json
-params/simulated_switchs_over_strategies.json
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
 
-params/parameter_recovery/recovered_params_generic UCB_optuna.json
-params/parameter_recovery/recovered_params_generic UCB w seperation_optuna.json
-params/parameter_recovery/recovered_params_relative prospect UCB_optuna.json
-params/parameter_recovery/recovered_params_prospect UCB_optuna.json
-params/parameter_recovery/recovered_params_relative prospect UCB (inner)_optuna.json
-params/parameter_recovery/recovered_params_relative prospect UCB w seperation_optuna.json
-params/parameter_recovery/recovered_params_prospect UCB w seperation_optuna.json
-params/parameter_recovery/recovered_params_relative prospect UCB (inner) w seperation_optuna.json
+# Generated data and logs (reproducible, not tracked)
+data/
+logs/
+*.log
 
-params/parameter_recovery/recovered_switchs_generic UCB_optuna.json
-params/parameter_recovery/recovered_switchs_generic UCB w seperation_optuna.json
-params/parameter_recovery/recovered_switchs_relative prospect UCB_optuna.json
-params/parameter_recovery/recovered_switchs_prospect UCB_optuna.json
-params/parameter_recovery/recovered_switchs_relative prospect UCB (inner)_optuna.json
-params/parameter_recovery/recovered_switchs_relative prospect UCB w seperation_optuna.json
-params/parameter_recovery/recovered_switchs_prospect UCB w seperation_optuna.json
-params/parameter_recovery/recovered_switchs_relative prospect UCB (inner) w seperation_optuna.json
-
-envs/restless_envs
-envs/stationary_noncor_envs
-envs/stationary_cor_1D_envs
-envs/stationary_cor_2D_envs
-
-recovery_log.txt
-log/recovery_alpha.txt
-log/recovery_init_mean.txt
-log/recovery_init_noise.txt
-log/recovery_loss.txt
-log/recovery_phi.txt
-log/recovery_rho.txt
-log/recovery_risk_minus.txt
-log/recovery_risk_plus.txt
-log/recovery_theta.txt
-log/recovery_xi.txt
+# Outputs of the old (July 2025) recovery scripts
+results/params/parameter_recovery/
+results/params/simulated_*.json
