@@ -1,10 +1,5 @@
 import torch
-from bandit25.variable import Env, mean, env_name
-
-variance = 10
-noise = 10
-horizon = 70
-num = 100
+from bandit25.variable import Env, mean, env_name, noise, horizon
 
 # restless
 lamb, noise_o, noise_d = 0.9836, 4, 2.8

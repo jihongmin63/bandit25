@@ -3,7 +3,7 @@ import torch
 import pickle
 
 from bandit25.vectorized_function import vectorized_simulate
-from bandit25.vectorized_models import Vectorized_Kalman_SM, free_varaibles
+from bandit25.vectorized_models import Vectorized_Kalman_SM, free_variables
 from bandit25.fitting import fit, sample_params
 
 torch.manual_seed(42)
@@ -14,7 +14,7 @@ with open("data/envs/restless_envs", 'rb') as f:
 
 name = 'Kalman_SM on restless envs'
 envs = restless_envs[1]
-names = free_varaibles['Kalman_SM']
+names = free_variables['Kalman_SM']
 
 num = 30
 initial_points = 10

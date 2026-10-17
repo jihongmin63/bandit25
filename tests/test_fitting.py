@@ -2,10 +2,10 @@ import torch
 
 from bandit25.variable import Env
 from bandit25.vectorized_function import vectorized_simulate
-from bandit25.vectorized_models import Vectorized_Kalman_SM, free_varaibles
+from bandit25.vectorized_models import Vectorized_Kalman_SM, free_variables
 from bandit25.fitting import bounds, fit, initial_params, sample_params, to_constrained, to_unconstrained
 
-names = free_varaibles['Kalman_SM']
+names = free_variables['Kalman_SM']
 
 
 def short_envs(n, horizon=40):

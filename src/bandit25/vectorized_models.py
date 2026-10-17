@@ -1,22 +1,11 @@
-
-import torch
-from bandit25.variable import horizon, Env
-from bandit25.vectorized_function import prospect, vectorized_simulate
-from sklearn.gaussian_process import GaussianProcessRegressor as GPR
-from sklearn.gaussian_process.kernels import RBF
-from scipy.stats import mvn
-from scipy.stats import multivariate_normal
-from scipy.stats import norm
-from scipy import special
 import pickle
+
 import numpy as np
-import matplotlib.pyplot as plt
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 import torch
-import numpy as np
 from scipy import special
+
+from bandit25.vectorized_function import prospect, vectorized_simulate
+
 
 class Parabolic_Cylinder(torch.autograd.Function):
     @staticmethod
@@ -95,7 +84,7 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward, c_max = 40.0):
     return torch.clamp(var, min=1e-10)
 
 
-free_varaibles = {
+free_variables = {
     'Kalman_SM' : ['loss', 'risk_plus', 'risk_minus', 'init_mean', 'init_noise', 'theta', 'alpha', 'rho', 'phi', 'xi']
 }
 
@@ -107,26 +96,19 @@ class Vectorized_Kalman_SM :
         self.size = 1
         for s in self.structure :
             self.size *= s
+        dtype, device = self.init_mean.dtype, self.init_mean.device
+
         self.mu = self.init_mean.view(-1, 1).expand(-1, self.size).clone()
         self.sigma = self.init_noise.view(-1, 1).expand(-1, self.size).clone()
-        self.preservation = torch.zeros((self.n, self.size), dtype=self.init_mean.dtype, device=self.init_mean.device)
-        
-        self.env_noise, self.env_noise_d, self.env_lamb, self.env_mean = [], [], [], []
-        for env in envs :
-            self.env_noise.append(env.noise)
-            self.env_noise_d.append(env.noise_d)
-            self.env_lamb.append(env.lamb)
-            self.env_mean.append(env.mean)
-        self.env_noise = torch.tensor(self.env_noise, dtype=self.init_mean.dtype).unsqueeze(-1)
-        self.env_noise_d = torch.tensor(self.env_noise_d, dtype=self.init_mean.dtype).unsqueeze(-1)
-        self.env_lamb = torch.tensor(self.env_lamb, dtype=self.init_mean.dtype).unsqueeze(-1)
-        self.env_mean = torch.tensor(self.env_mean, dtype=self.init_mean.dtype).unsqueeze(-1)
+        self.preservation = torch.zeros((self.n, self.size), dtype=dtype, device=device)
 
-        self.prev_reward = torch.zeros((self.n, 1))
+        self.env_noise = torch.tensor([env.noise for env in envs], dtype=dtype, device=device).unsqueeze(-1)
+        self.env_noise_d = torch.tensor([env.noise_d for env in envs], dtype=dtype, device=device).unsqueeze(-1)
+        self.env_lamb = torch.tensor([env.lamb for env in envs], dtype=dtype, device=device).unsqueeze(-1)
+        self.env_mean = torch.tensor([env.mean for env in envs], dtype=dtype, device=device).unsqueeze(-1)
 
-    def setting(self, info):
-        return
-    
+        self.prev_reward = torch.zeros((self.n, 1), dtype=dtype, device=device)
+
     def calculate(self, t) :
         mu = prospect(self.mu, self.loss, self.risk_plus, self.risk_minus, xi =  self.xi, prev_result = self.prev_reward)
         var = Variance(self.risk_plus, self.risk_minus, self.loss, self.mu, self.sigma, self.xi, self.prev_reward)
@@ -134,14 +116,6 @@ class Vectorized_Kalman_SM :
         return self.theta * (mu + self.rho * self.preservation + self.phi * sigma)
 
     def update(self, action, reward) :
-        """
-        def ravel_idx(array) :
-            size = array[0]
-            for i in range(1, len(array)) :
-                size = size * self.structure[i] + array[i]
-            return size
-        idx = ravel_idx(action)
-        """
         self.preservation = self.preservation + self.alpha * (action - self.preservation)
         K_t = torch.square(self.sigma) / (torch.square(self.sigma) + self.env_noise ** 2)
         mu_post = self.mu + action * (reward - self.mu) * K_t
@@ -162,61 +136,3 @@ if __name__ == "__main__":
     al, rl, r, s = vectorized_simulate(param, [restless_envs[1][0]], Vectorized_Kalman_SM)
 
     print(torch.stack(al).argmax(dim=-1).flatten())
-
-
-
-"""
-class GPR_SM :
-    def __init__(self, params, env) :
-        self.loss, self.risk, self.mean, self.noise, self.theta1, self.theta2, self.kappa, self.alpha, self.rho, self.beta1, self.beta2, self.phi2, self.phi3 = params
-        self.structure = env.structure
-        size = np.size(np.array(self.structure))
-
-        gpr = GPR(kernel = RBF(length_scale=env.lamb, alpha = self.noise))
-        
-        self.mu = None
-        self.sigma = None
-
-        self.X, self.y = [], []
-
-        self.preservation = np.zeros(size)
-        self.actions = np.zeros(size)
-
-        self.env = env
-
-        self.X_every = np.stack(np.indices(self.sturcutre), axis=-1).reshape(-1, len(self.structure))  
-    
-    def setting(self, info):
-        self.X.append(info[0])
-        self.y.append(info[1])
-
-        gpr = self.gpr.fit(self.X, self.y)
-        self.mu, self.sigma = gpr.predict(self.X_every)
-
-    def calculate(self, t) :
-        theta = self.kappa * self.theta1 + (1 - self.kappa) * ((t/10) ** self.theta2)
-        phi1 = np.where(self.mu >= 0, self.beta1, self.beta2)
-
-        used_bandits = np.zeros_like(self.mu)
-        for i in range(len(self.mu)) : 
-            for j in range(len(self.mu)) :
-                if i == j : 
-                    continue
-                if self.actions[i] > self.actions[j]:
-                    used_bandits[i] += 1
-
-        return theta * (self.mu + self.rho * self.preservation + phi1 * self.sigma + self.phi2 * used_bandits + self.phi3 * self.actions)
-
-    def update(self, action, reward) :
-        self.X.append(action)
-        self.y.append(reward)
-
-        idx = np.ravel_multi_index(action, self.structure)
-
-        self.preservation[idx] = self.preservation[idx] + self.alpha * (1 - self.preservation[idx])
-        self.actions = self.actions + 1
-        self.actions[idx] = 0
-        
-        gpr = self.gpr.fit(self.X, self.y)
-        self.mu, self.sigma = gpr.predict(self.X_every)
-"""

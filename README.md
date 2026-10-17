@@ -32,6 +32,23 @@ The detailed version follows:
     - $\Phi_r(x) := \frac{\sigma^r}{\sqrt{2\pi}} e^{-\frac{1}{4}x^2}\Gamma(r+1)D_{-r-1}(-x)$
 	- $X := (\hat{\mu_{i, t}}^{pre} - \xi \cdot r_t) / \hat{\sigma_{i, t}}^{pre}$ 
 
+**Free parameters** (`free_variables['Kalman_SM']`, bounds in `recovery_range`)
+
+| Code name | Symbol | Meaning | Range |
+|---|---|---|---|
+| `loss` | $\lambda$ | loss aversion | [0, 10] |
+| `risk_plus` | $\alpha$ | curvature of gains | [0, 3] |
+| `risk_minus` | $\beta$ | curvature of losses | [0, 3] |
+| `init_mean` | $\hat{\mu}_{i,0}$ | initial estimate of every arm | [-100, 100] |
+| `init_noise` | $\hat{\sigma}_{i,0}$ | initial uncertainty of every arm | [2, 10] |
+| `theta` | $\theta$ | inverse temperature | [1e-4, 5] |
+| `alpha` | $\alpha_H$ | learning rate of the preservation trace $H$ | [0, 1] |
+| `rho` | $\rho$ | weight of the preservation bonus | [-20, 20] |
+| `phi` | $\phi$ | weight of the exploration bonus $\sigma^*$ | [-20, 20] |
+| `xi` | $\xi$ | weight of the previous reward in the reference point | [0, 1] |
+
+$\lambda_{env}$, $\theta_{env}$ (the decay center, $\varphi$ in §1), $\sigma_o$ and $\sigma_d$ are environment constants, not free parameters.
+
 ## 3. Project structure
 
 | Path | Contents |
@@ -50,9 +67,11 @@ Install once with `pip install -e .`, then run scripts from the repository root:
 ```bash
 python scripts/make_envs.py                               # data/envs/ (seed 42, same draws as the original envs.py)
 python scripts/recovery/vectorized_parameter_recovery.py  # needs data/envs/restless_envs
+python scripts/recovery/vectorized_visualize.py
+python scripts/loss_sanity/loss_sanity.py theta           # any free parameter; --grid 50 by default
 pytest
 ```
 
 `python scripts/make_envs.py --process daw` writes `data/envs/restless_envs_daw` instead, whose means drift
-as the Kalman model assumes ($\mu' \sim N(\lambda\mu + (1-\lambda)\theta, \sigma_D)$). In the default (original)
-environments the drift also takes the observation noise, so its step SD is about 4.8 rather than $\sigma_D = 2.8$.
+as the Kalman model assumes ($\mu' \sim N(\lambda_{env}\mu + (1-\lambda_{env})\theta_{env}, \sigma_D)$). In the default
+(original) environments the drift also takes the observation noise, so its step SD is about 4.8 rather than $\sigma_D = 2.8$.
