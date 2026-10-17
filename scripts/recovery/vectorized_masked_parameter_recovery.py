@@ -5,13 +5,13 @@ from tqdm import tqdm
 
 import pickle
 
-from variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
-from vectorized_function import vectorized_simulate
-from vectorized_models import Vectorized_Kalman_SM, free_varaibles
+from bandit25.variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
+from bandit25.vectorized_function import vectorized_simulate
+from bandit25.vectorized_models import Vectorized_Kalman_SM, free_varaibles
 import numpy as np
 import copy
-from function import simulate
-from models import Kalman_SM, free_varaibles
+from bandit25.function import simulate
+from bandit25.models import Kalman_SM, free_varaibles
 
 from torchviz import make_dot
 
@@ -19,7 +19,7 @@ np.random.seed(0)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-with open("envs/restless_envs", 'rb') as f:
+with open("data/envs/restless_envs", 'rb') as f:
     restless_envs = pickle.load(f)
     
 name = 'Kalman_SM on restless envs'
@@ -61,7 +61,7 @@ def objective(x) :
 
 res = minimize(objective, x0, bounds = bound, method='L-BFGS-B')
 
-with open(f"params/Vectorized_{selected_var}_maksed_Restless_params", "wb") as f:
+with open(f"results/params/Vectorized_{selected_var}_maksed_Restless_params", "wb") as f:
     pickle.dump([original_params[selected_idx], res.x], f)
 
 print(res.x)

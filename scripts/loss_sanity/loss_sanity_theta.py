@@ -8,14 +8,14 @@ from tqdm import tqdm
 
 import pickle
 
-from variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
-from vectorized_function import vectorized_simulate
-from vectorized_models import Vectorized_Kalman_SM, free_varaibles
+from bandit25.variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
+from bandit25.vectorized_function import vectorized_simulate
+from bandit25.vectorized_models import Vectorized_Kalman_SM, free_varaibles
 import numpy as np
 
 
-from function import simulate
-from models import Kalman_SM, free_varaibles
+from bandit25.function import simulate
+from bandit25.models import Kalman_SM, free_varaibles
 
 from torchviz import make_dot
 
@@ -23,7 +23,7 @@ np.random.seed(0)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-with open("envs/restless_envs", 'rb') as f:
+with open("data/envs/restless_envs", 'rb') as f:
     restless_envs = pickle.load(f)
     
 envs = restless_envs[1]
@@ -31,7 +31,7 @@ envs = restless_envs[1]
 num = 30
 selected_envs = [envs[t] for t in range(num)]
 
-problematic_params = ['init_mean']
+problematic_params = ['theta']
 for problematic_param in problematic_params:
     print(f"<{problematic_param}>")
     res = []
@@ -88,5 +88,5 @@ for problematic_param in problematic_params:
         res.append(prob.t().mean())
 
     # --- 3️⃣ 결과 저장 ---
-    with open(f"params/Loss_sanity_{problematic_param}", "wb") as f:
+    with open(f"results/params/Loss_sanity_{problematic_param}", "wb") as f:
         pickle.dump(res, f)

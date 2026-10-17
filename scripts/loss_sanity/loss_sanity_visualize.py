@@ -2,13 +2,13 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # 3D plotting
-from variable import recovery_range
+from bandit25.variable import recovery_range
 import pickle
 
 problematic_params = ['theta', 'alpha', 'init_noise', 'init_mean', 'xi']
 for problematic_param in problematic_params:
         
-    with open(f"params/Loss_sanity_{problematic_param}", 'rb') as f:
+    with open(f"results/params/Loss_sanity_{problematic_param}", 'rb') as f:
         res = pickle.load(f)
         res_tensor = torch.stack([r.flatten() for r in res])  # shape: (2500,)
 
@@ -38,5 +38,5 @@ for problematic_param in problematic_params:
 
     fig.colorbar(surf, ax=ax, shrink=0.6, aspect=10)
     plt.show()
-    plt.savefig(f"images/loss_sanity_{problematic_param}.png", dpi=300)
+    plt.savefig(f"results/figures/loss_sanity_{problematic_param}.png", dpi=300)
     plt.close()

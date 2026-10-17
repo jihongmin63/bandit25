@@ -5,9 +5,9 @@ from tqdm import tqdm
 
 import pickle
 
-from variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
-from function import simulate
-from models import Kalman_SM, free_varaibles
+from bandit25.variable import recovery_range, recovery_subjects, recovery_trials, recovery_init, Env
+from bandit25.function import simulate
+from bandit25.models import Kalman_SM, free_varaibles
 import numpy as np
 import copy
 from torchviz import make_dot
@@ -18,7 +18,7 @@ np.random.seed(0)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-with open("envs/restless_envs", 'rb') as f:
+with open("data/envs/restless_envs", 'rb') as f:
     restless_envs = pickle.load(f)
     
 envs = restless_envs[1]
@@ -55,7 +55,7 @@ for subj in tqdm(range(num)) :
 
     recovered_params.append(best_param.tolist())
 
-with open(f"params/Restless_params_w_initial_points", "wb") as f:
+with open(f"results/params/Restless_params_w_initial_points", "wb") as f:
     pickle.dump([original_params, recovered_params], f)
 
 end_time = time.time()

@@ -1,7 +1,7 @@
 
 import torch
-from variable import horizon, Env
-from vectorized_function import prospect, vectorized_simulate
+from bandit25.variable import horizon, Env
+from bandit25.vectorized_function import prospect, vectorized_simulate
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import mvn
@@ -158,7 +158,7 @@ class Vectorized_Kalman_SM :
         self.prev_reward = reward
 
 if __name__ == "__main__":
-    with open("envs/restless_envs", 'rb') as f:
+    with open("data/envs/restless_envs", 'rb') as f:
         restless_envs = pickle.load(f)
     #self.loss, self.risk_plus, self.risk_minus, self.init_mean, self.init_noise, self.theta, self.alpha, self.rho, self.phi, self.xi
     param = torch.tensor([5.0, 0.6, 0.6, 0, 10, 5, 0.5, 10, 10, 0])

@@ -1,11 +1,11 @@
 import pickle
 import pandas as pd
-from models import free_varaibles
+from bandit25.models import free_varaibles
 import seaborn as sns 
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-with open("params/Maksed_Restless_params","rb") as f:
+with open("results/params/Vectorized_Restless_params_w_initials","rb") as f:
     original_data, recovered_data = pickle.load(f)
     
 
@@ -19,8 +19,9 @@ for idx, var in enumerate(free_varaibles['Kalman_SM']):
     data = []
     orig_col, rec_col = f"original {var}", f"recovered {var}"
 
-    for i in range(len(recovered_data)):
-        data.append([original_data[i][idx], recovered_data[i][idx]])
+    for i in range(original_data.size(1)):
+        #print(original_data[idx][i], recovered_data[idx][i])
+        data.append([original_data[idx][i][0].item(), recovered_data[i][idx].item()])
 
     df = pd.DataFrame(data, columns=[orig_col, rec_col])
 
@@ -45,5 +46,5 @@ for idx, var in enumerate(free_varaibles['Kalman_SM']):
     ax.set_title(f"{var}")
 
 plt.tight_layout()
-plt.savefig("images/recovery/Masked_all_parameters.png", dpi=300)
+plt.savefig("results/figures/recovery/vectorized_all_parameters_w_initial_points.png", dpi=300)
 plt.close()

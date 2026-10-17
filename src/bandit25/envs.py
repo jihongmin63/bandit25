@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 import pickle
-from .variable import Env, mean, env_name
+from bandit25.variable import Env, mean, env_name
 
 variance = 10
 noise = 10
@@ -19,7 +19,7 @@ def stationary() :
             stationary_noncor_envs[i].append(e)
     return stationary_noncor_envs
 """
-with open("envs/stationary_noncor_envs", 'wb') as f:
+with open("data/envs/stationary_noncor_envs", 'wb') as f:
     pickle.dump(stationary_noncor_envs, f)
 
 # restless
@@ -41,7 +41,7 @@ for i in range(3) :
         e = Env(env = env, stationary = 0, structure = (4,), horizon = 300, mean = theta, noise = noise_o, noise_d = noise_d, lamb = lamb, name = f"restless_{env_name[i]}")
         restless_envs[i].append(e)
 
-with open("envs/restless_envs", 'wb') as f:
+with open("data/envs/restless_envs", 'wb') as f:
     pickle.dump(restless_envs, f)
 
 plt.figure(figsize = (12, 5))
@@ -51,7 +51,7 @@ for t in range(4) :
 plt.xlabel("horizon")
 plt.ylabel("bandit mean")
 plt.title(f"{restless_envs[1][0].name}")
-plt.savefig(f"images/sample env_{restless_envs[1][0].name}.png")
+plt.savefig(f"results/figures/sample env_{restless_envs[1][0].name}.png")
 
 
 ex = stationary_noncor_envs[1][0].env
@@ -63,7 +63,7 @@ for i in range(10) :
     plt.text(i, 0, f"{ex[0, i].item():.2f}", ha='center', va='center', color='black', fontsize=7)
 plt.xticks([i for i in range(10)])
 plt.yticks([])
-plt.savefig(f'images/sample env_{stationary_noncor_envs[1][0].name}.png')
+plt.savefig(f'results/figures/sample env_{stationary_noncor_envs[1][0].name}.png')
 """
 """
 # corelated 1D
@@ -83,7 +83,7 @@ for i, mu in enumerate(mean) :
             sample = np.sum(sample, np.random.normal(0, 1, size=sample.shape))
             stationary_cor_1D_envs[i][j].append(Env(env = sample, stationary = 1, structure = (d,), horizon = 25, mean = mu, noise = , l = cor, name = f"stationary_cor_1D_{name[j]}_{env_name[i]}"))
 
-with open("envs/stationary_cor_1D_envs", 'wb') as f:
+with open("data/envs/stationary_cor_1D_envs", 'wb') as f:
     pickle.dump(stationary_cor_1D_envs, f)
 
 # corelated 2D
@@ -101,7 +101,7 @@ for i, mu in enumerate(mean) :
             sample = np.sum(sample, np.random.normal(0, 1, size=sample.shape))
             stationary_cor_2D_envs[i][j].append(Env(env = sample, stationary = 1, structure = (d,d,), horizon = 25, mean = mu, noise = , l = cor, name = f"stationary_cor_2D_{name[j]}_{env_name[i]}"))
 
-with open("envs/stationary_cor_2D_envs", 'wb') as f:
+with open("data/envs/stationary_cor_2D_envs", 'wb') as f:
     pickle.dump(stationary_cor_2D_envs, f)
 
 
@@ -115,7 +115,7 @@ for i in range(10) :
     plt.text(i, 0, f"{ex[i]:.2f}", ha='center', va='center', color='black', fontsize=7)
 plt.xticks([i for i in range(10)])
 plt.yticks([])
-plt.savefig(f'images/sample env_{stationary_cor_1D_envs[1][1][0].name}.png')
+plt.savefig(f'results/figures/sample env_{stationary_cor_1D_envs[1][1][0].name}.png')
 
 
 ex = stationary_cor_2D_envs[1][1][0].env
@@ -128,5 +128,5 @@ for i in range(10):
                  color='black', fontsize=7)
 plt.xticks(range(10))
 plt.yticks(range(10))
-plt.savefig(f'images/sample env_{stationary_cor_2D_envs[1][1][0].name}.png')
+plt.savefig(f'results/figures/sample env_{stationary_cor_2D_envs[1][1][0].name}.png')
 """

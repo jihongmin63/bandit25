@@ -1,5 +1,5 @@
 import torch
-from variable import horizon, Env
+from bandit25.variable import horizon, Env
 from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import mvn
