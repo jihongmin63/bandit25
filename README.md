@@ -36,12 +36,23 @@ The detailed version follows:
 
 | Path | Contents |
 |---|---|
-| `src/bandit25/` | Core package: environments, models, simulation |
+| `src/bandit25/` | Core package: environments, models, simulation, fitting |
+| `scripts/make_envs.py` | Generates `data/envs/*` and the sample env figures |
 | `scripts/recovery/` | Parameter recovery experiments and their plots |
 | `scripts/loss_sanity/` | Loss sanity checks for individual parameters |
 | `notebooks/` | Exploratory notebooks |
 | `results/figures/`, `results/params/` | Generated figures and pickled recovery results |
+| `tests/` | Checks of the numerics and the fitting (`pytest`) |
 | `data/`, `logs/` | Generated environments and logs (not tracked) |
 
-Install once with `pip install -e .`, then run scripts from the repository root,
-e.g. `python scripts/recovery/vectorized_parameter_recovery.py`.
+Install once with `pip install -e .`, then run scripts from the repository root:
+
+```bash
+python scripts/make_envs.py                               # data/envs/ (seed 42, same draws as the original envs.py)
+python scripts/recovery/vectorized_parameter_recovery.py  # needs data/envs/restless_envs
+pytest
+```
+
+`python scripts/make_envs.py --process daw` writes `data/envs/restless_envs_daw` instead, whose means drift
+as the Kalman model assumes ($\mu' \sim N(\lambda\mu + (1-\lambda)\theta, \sigma_D)$). In the default (original)
+environments the drift also takes the observation noise, so its step SD is about 4.8 rather than $\sigma_D = 2.8$.

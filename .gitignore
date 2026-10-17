@@ -4,7 +4,7 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 
-# Generated data and logs (reproducible, not tracked)
+# Generated data and logs (not tracked; data/envs comes from scripts/make_envs.py)
 data/
 logs/
 *.log
