@@ -30,7 +30,7 @@ class Parabolic_Cylinder(torch.autograd.Function):
         v0 = v.detach().cpu().numpy().astype(np.float64)
         x0 = x.detach().cpu().numpy().astype(np.float64)
 
-        eps = 1e-8
+        eps = 1e-6
 
         _, grad_x_np = special.pbdv(v0, x0)
 
@@ -41,10 +41,17 @@ class Parabolic_Cylinder(torch.autograd.Function):
         grad_x = torch.from_numpy(grad_x_np).to(device=x.device, dtype=x.dtype)
         grad_v = torch.from_numpy(grad_v_np).to(device=v.device, dtype=v.dtype)
 
-        return grad_v * grad_output, grad_x * grad_output
+        # v is shared by every arm, so their contributions are summed
+        return (grad_v * grad_output).sum_to_size(v.shape), grad_x * grad_output
     
-def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
-    c = (mu - xi * reward) / sigma
+def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward, c_max = 40.0) :
+    d = mu - xi * reward
+    c = d / sigma
+
+    # |c| > ~53 overflows exp/pbdv into nan, so far arms use the delta method below
+    far = c.abs() > c_max
+    c = torch.clamp(c, -c_max, c_max)
+
     def Helper(r, c, log = 0) :
         """
         Helper function calculating distorted sigma
@@ -70,11 +77,15 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward) :
             print(" v5 : ", v5)
         return v1 * v3 * v4 * v5  / v2
     var = Helper(2 * risk_plus, c) + loss * loss * Helper(2 * risk_minus, -c) - torch.square(Helper(risk_plus, c) - loss * Helper(risk_minus, -c))
-    
-    with torch.no_grad() :
-        var = torch.clamp(var, min=0)
-    
-    return var
+
+    # almost all mass on one side of the reference: Var[u(X)] ~ (u'(d) * sigma)^2
+    d_far = torch.clamp(d.abs(), min=c_max * sigma)
+    slope = torch.where(d > 0, risk_plus * torch.pow(d_far, risk_plus - 1),
+                        loss * risk_minus * torch.pow(d_far, risk_minus - 1))
+    var = torch.where(far, torch.square(slope * sigma), var)
+
+    # clamp without no_grad so the gradient through sigma* is kept
+    return torch.clamp(var, min=1e-10)
 
 
 free_varaibles = {

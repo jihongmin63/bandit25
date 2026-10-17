@@ -21,7 +21,7 @@ def select_arm(n, env, noise) :
     return (reward + torch.randn_like(reward) * noise)
     
 
-def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None, eps = 1e-12):
+def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = 0, eps = 1e-12):
     """
         It is utility function that modify the original value
 
@@ -36,8 +36,11 @@ def prospect(x, loss, risk_plus, risk_minus, xi = 0, prev_result = None, eps = 1
         Returns:
             util (int or array) : the modified value 
     """
-    xi_val = xi if xi is not None else 0
-    return torch.pow(torch.clamp(x - xi_val * prev_result, min=eps), risk_plus) - loss * torch.pow(torch.clamp(-x + xi_val * prev_result, min=eps), risk_minus)
+    d = x - xi * prev_result
+    gain = torch.pow(torch.clamp(d, min=eps), risk_plus)
+    pain = torch.pow(torch.clamp(-d, min=eps), risk_minus)
+    # mask each domain, otherwise eps ** risk (not ~0 for small risk) leaks into the other side
+    return gain * (d > 0) - loss * pain * (d < 0)
 
 def unravel_index(index, shape):
     result = []

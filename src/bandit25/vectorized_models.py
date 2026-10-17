@@ -26,17 +26,11 @@ class Parabolic_Cylinder(torch.autograd.Function):
         x: (n, m) tensor
         returns: (n,m) tensor
         """
-        n, m = x.shape
-        out_list = []
         v_np = v.detach().cpu().numpy()  # (n,1)
         x_np = x.detach().cpu().numpy()  # (n,m)
 
-        # 각 row마다 v[i,0], x[i,:] 쌍 계산
-        for i in range(n):
-            out_row, _ = special.pbdv(v_np[i,0], x_np[i,:])
-            out_list.append(out_row)
-
-        out_np = np.stack(out_list, axis=0)  # (n,m)
+        # pbdv는 ufunc라서 (n,1)과 (n,m)을 broadcasting해 한 번에 계산
+        out_np, _ = special.pbdv(v_np, x_np)
         out = torch.from_numpy(out_np).to(x.device, dtype=x.dtype)
 
         ctx.save_for_backward(v, x)
@@ -45,37 +39,36 @@ class Parabolic_Cylinder(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
         v, x = ctx.saved_tensors
-        n, m = x.shape
-        grad_v_list, grad_x_list = [], []
-
         v_np = v.detach().cpu().numpy()
         x_np = x.detach().cpu().numpy()
 
-        eps = 1e-8
+        eps = 1e-6
 
-        for i in range(n):
-            # grad x
-            _, grad_x_np = special.pbdv(v_np[i,0], x_np[i,:])
-            grad_x_list.append(grad_x_np)
+        # grad x
+        _, grad_x_np = special.pbdv(v_np, x_np)
 
-            # grad v via finite difference
-            out_plus, _ = special.pbdv(v_np[i,0]+eps, x_np[i,:])
-            out_minus, _ = special.pbdv(v_np[i,0]-eps, x_np[i,:])
-            grad_v_list.append((out_plus - out_minus)/(2*eps))
-
-        grad_x_np = np.stack(grad_x_list, axis=0)
-        grad_v_np = np.array(grad_v_list)[:,0:1]  # (n,1)
+        # grad v via finite difference, element-wise (n,m)
+        out_plus, _ = special.pbdv(v_np + eps, x_np)
+        out_minus, _ = special.pbdv(v_np - eps, x_np)
+        grad_v_np = (out_plus - out_minus) / (2 * eps)
 
         grad_x = torch.from_numpy(grad_x_np).to(x.device, dtype=x.dtype) * grad_output
-        grad_v = torch.from_numpy(grad_v_np).to(v.device, dtype=v.dtype) * grad_output.sum(dim=1, keepdim=True)
+        # v is shared by the m arms of each row, so their contributions are summed
+        grad_v = torch.from_numpy(grad_v_np).to(v.device, dtype=v.dtype) * grad_output
+        grad_v = grad_v.sum_to_size(v.shape)
 
         return grad_v, grad_x
 
 
-def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward):
+def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward, c_max = 40.0):
     # reward: (batch, 1) or (batch,)
     reward = reward.unsqueeze(-1) if reward.dim() == 1 else reward
-    c = (mu - xi * reward) / sigma  # broadcasting 지원
+    d = mu - xi * reward
+    c = d / sigma  # broadcasting 지원
+
+    # |c| > ~53 overflows exp/pbdv into nan, so far arms use the delta method below
+    far = c.abs() > c_max
+    c = torch.clamp(c, -c_max, c_max)
 
     def Helper(r, c):
         """
@@ -92,10 +85,14 @@ def Variance(risk_plus, risk_minus, loss, mu, sigma, xi, reward):
           + loss*loss * Helper(2 * risk_minus, -c) \
           - torch.square(Helper(risk_plus, c) - loss*Helper(risk_minus, -c))
 
-    if torch.any(var <= 0):
-        with torch.no_grad() :
-            var = torch.clamp(var, min=0)
-    return var
+    # almost all mass on one side of the reference: Var[u(X)] ~ (u'(d) * sigma)^2
+    d_far = torch.clamp(d.abs(), min=c_max * sigma)
+    slope = torch.where(d > 0, risk_plus * torch.pow(d_far, risk_plus - 1),
+                        loss * risk_minus * torch.pow(d_far, risk_minus - 1))
+    var = torch.where(far, torch.square(slope * sigma), var)
+
+    # clamp without no_grad so the gradient through sigma* is kept
+    return torch.clamp(var, min=1e-10)
 
 
 free_varaibles = {
