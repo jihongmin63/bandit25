@@ -37,11 +37,11 @@ The detailed version follows:
 | Code name | Symbol | Meaning | Range |
 |---|---|---|---|
 | `loss` | $\lambda$ | loss aversion | [0, 10] |
-| `risk_plus` | $\alpha$ | curvature of gains | [0, 3] |
-| `risk_minus` | $\beta$ | curvature of losses | [0, 3] |
+| `risk_plus` | $\alpha$ | curvature of gains | [0.2, 1.2] |
+| `risk_minus` | $\beta$ | curvature of losses | [0.2, 1.2] |
 | `init_mean` | $\hat{\mu}_{i,0}$ | initial estimate of every arm | [-100, 100] |
 | `init_noise` | $\hat{\sigma}_{i,0}$ | initial uncertainty of every arm | [2, 10] |
-| `theta` | $\theta$ | inverse temperature | [1e-4, 5] |
+| `theta` | $\theta$ | inverse temperature | [1e-3, 0.2] |
 | `alpha` | $\alpha_H$ | learning rate of the preservation trace $H$ | [0, 1] |
 | `rho` | $\rho$ | weight of the preservation bonus | [-20, 20] |
 | `phi` | $\phi$ | weight of the exploration bonus $\sigma^*$ | [-20, 20] |
