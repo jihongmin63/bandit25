@@ -43,8 +43,8 @@ The detailed version follows:
 | `init_noise` | $\hat{\sigma}_{i,0}$ | initial uncertainty of every arm | [2, 10] |
 | `theta` | $\theta$ | inverse temperature | [1e-3, 0.2] |
 | `alpha` | $\alpha_H$ | learning rate of the preservation trace $H$ | [0, 1] |
-| `rho` | $\rho$ | weight of the preservation bonus | [-20, 20] |
-| `phi` | $\phi$ | weight of the exploration bonus $\sigma^*$ | [-20, 20] |
+| `rho` | $\rho$ | weight of the preservation bonus | [-10, 10] |
+| `phi` | $\phi$ | weight of the exploration bonus $\sigma^*$ | [-10, 10] |
 | `xi` | $\xi$ | weight of the previous reward in the reference point | [0, 1] |
 
 $\lambda_{env}$, $\theta_{env}$ (the decay center, $\varphi$ in §1), $\sigma_o$ and $\sigma_d$ are environment constants, not free parameters.

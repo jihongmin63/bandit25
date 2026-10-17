@@ -22,6 +22,13 @@ def short_envs(n, horizon=40):
     return envs
 
 
+def test_recovery_init_inside_bounds():
+    # at a bound the sigmoid saturates and fit() cannot move the parameter
+    lo, hi = bounds(names)
+    x0 = initial_params(names, 1)
+    assert ((x0 > lo) & (x0 < hi)).all()
+
+
 def test_unconstrained_round_trip():
     lo, hi = bounds(names)
     x = sample_params(names, 5)
