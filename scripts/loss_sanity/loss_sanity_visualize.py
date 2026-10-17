@@ -1,43 +1,41 @@
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # 3D plotting
-from bandit25.variable import recovery_range
+import os
 import pickle
 
-problematic_params = ['theta', 'alpha', 'init_noise', 'init_mean', 'xi']
-for problematic_param in problematic_params:
-        
-    with open(f"results/params/Loss_sanity_{problematic_param}", 'rb') as f:
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+
+from bandit25.variable import recovery_range
+from bandit25.vectorized_models import free_variables
+
+# every parameter that loss_sanity.py has been run for
+names = [v for v in free_variables['Kalman_SM'] if os.path.exists(f"results/params/Loss_sanity_{v}")]
+fig, axes = plt.subplots(1, len(names), figsize=(4 * len(names), 4.4), squeeze=False, constrained_layout=True)
+
+for ax, var in zip(axes[0], names):
+    with open(f"results/params/Loss_sanity_{var}", 'rb') as f:
         res = pickle.load(f)
-        res_tensor = torch.stack([r.flatten() for r in res]).flatten()  # shape: (grid * grid,)
+    z = torch.stack([torch.as_tensor(r).flatten() for r in res]).flatten().numpy()
+    grid = int(round(len(z) ** 0.5))
+    Z = z.reshape(grid, grid)  # Z[i, j] : data generated with values[j], evaluated at values[i]
 
-    # grid x grid로 reshape (loss_sanity_*.py는 50 x 50)
-    grid = int(round(len(res_tensor) ** 0.5))
-    Z = res_tensor.reshape(grid, grid).numpy()
+    lo, hi = recovery_range[var]
+    values = np.linspace(lo, hi, grid)
+    # each column is its own dataset, so compare values within a column only
+    rel = Z - Z.max(axis=0, keepdims=True)
+    best = values[Z.argmax(axis=0)]
 
-    # --- grid 생성 (X, Y는 위에서 만든 values 사용)
-    values = torch.linspace(
-        recovery_range[problematic_param][0],
-        recovery_range[problematic_param][1],
-        grid,
-        dtype=torch.float64
-    )
-    X, Y = torch.meshgrid(values, values, indexing='xy')
-    X = X.numpy()
-    Y = Y.numpy()
+    im = ax.imshow(rel, origin='lower', extent=[lo, hi, lo, hi], aspect='auto', cmap='viridis', vmin=-10, vmax=0)
+    ax.plot([lo, hi], [lo, hi], color='white', linestyle='--', linewidth=1)
+    ax.scatter(values, best, s=8, color='red', zorder=3)
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_xlabel(f"generating {var}")
+    ax.set_ylabel(f"evaluated {var}")
+    ax.set_title(f"{var} (r = {np.corrcoef(values, best)[0, 1]:.2f})")
 
-    # --- 3D 시각화 ---
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(111, projection='3d')
-
-    surf = ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none')
-    ax.set_xlabel(f'{problematic_param} src')
-    ax.set_ylabel(f'{problematic_param} tgt')
-    ax.set_zlabel('Loss or Prob')
-    ax.set_title(f'Loss landscape for {problematic_param}')
-
-    fig.colorbar(surf, ax=ax, shrink=0.6, aspect=10)
-    # savefig before show: show() may leave an empty figure behind
-    plt.savefig(f"results/figures/loss_sanity_{problematic_param}.png", dpi=300)
-    plt.close()
+fig.colorbar(im, ax=axes[0].tolist(), shrink=0.85,
+             label="mean log-lik per subject, minus the best in the column")
+fig.suptitle("Loss sanity: red = best evaluated value for each generating value (ideal: the dashed diagonal)")
+plt.savefig("results/figures/loss_sanity.png", dpi=200)
+plt.close()
