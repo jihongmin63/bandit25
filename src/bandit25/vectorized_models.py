@@ -158,14 +158,10 @@ if __name__ == "__main__":
     with open("data/envs/restless_envs", 'rb') as f:
         restless_envs = pickle.load(f)
     #self.loss, self.risk_plus, self.risk_minus, self.init_mean, self.init_noise, self.theta, self.alpha, self.rho, self.phi, self.xi
-    param = torch.tensor([5.0, 0.6, 0.6, 0, 10, 5, 0.5, 10, 10, 0])
-    al, rl, r, s, p = simulate(param, restless_envs[1][0], Kalman_SM)
+    param = torch.tensor([5.0, 0.6, 0.6, 0, 10, 5, 0.5, 10, 10, 0], dtype=torch.float64).view(-1, 1, 1)
+    al, rl, r, s = vectorized_simulate(param, [restless_envs[1][0]], Vectorized_Kalman_SM)
 
-    print(al)
-    """
-    plt.figure(figsize = (12, 5))
-    plt.plot(range(300), rl.detach().numpy(), color='blue',linestyle='-')
-    plt.savefig('test.png')"""
+    print(torch.stack(al).argmax(dim=-1).flatten())
 
 
 

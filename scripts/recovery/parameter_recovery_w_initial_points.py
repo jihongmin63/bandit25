@@ -45,10 +45,10 @@ for subj in tqdm(range(num)) :
 
         def objective(x) :
             _, _, _, _, prob = simulate(torch.tensor(x), envs[subj], Kalman_SM, test = 1, real_actions=al, real_rewards=rl)
-            return -prob
+            return -prob.item()  # scipy needs a float, not a tensor
 
         res = minimize(objective, x0, bounds = bound, method = 'L-BFGS-B')
-        if best_param == None :
+        if best_param is None :
             best_param, best_value = res.x, res.fun
         elif res.fun < best_value :
             best_param, best_value = res.x, res.fun

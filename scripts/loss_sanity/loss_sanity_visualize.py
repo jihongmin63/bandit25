@@ -10,16 +10,17 @@ for problematic_param in problematic_params:
         
     with open(f"results/params/Loss_sanity_{problematic_param}", 'rb') as f:
         res = pickle.load(f)
-        res_tensor = torch.stack([r.flatten() for r in res])  # shape: (2500,)
+        res_tensor = torch.stack([r.flatten() for r in res]).flatten()  # shape: (grid * grid,)
 
-    # 50x50 grid로 reshape
-    Z = res_tensor.reshape(30, 30).numpy()
+    # grid x grid로 reshape (loss_sanity_*.py는 50 x 50)
+    grid = int(round(len(res_tensor) ** 0.5))
+    Z = res_tensor.reshape(grid, grid).numpy()
 
     # --- grid 생성 (X, Y는 위에서 만든 values 사용)
     values = torch.linspace(
         recovery_range[problematic_param][0],
         recovery_range[problematic_param][1],
-        30,
+        grid,
         dtype=torch.float64
     )
     X, Y = torch.meshgrid(values, values, indexing='xy')
@@ -37,6 +38,6 @@ for problematic_param in problematic_params:
     ax.set_title(f'Loss landscape for {problematic_param}')
 
     fig.colorbar(surf, ax=ax, shrink=0.6, aspect=10)
-    plt.show()
+    # savefig before show: show() may leave an empty figure behind
     plt.savefig(f"results/figures/loss_sanity_{problematic_param}.png", dpi=300)
     plt.close()

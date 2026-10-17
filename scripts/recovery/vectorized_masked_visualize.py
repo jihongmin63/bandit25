@@ -17,11 +17,18 @@ for idx, var in enumerate(free_varaibles['Kalman_SM']):
         original_data, recovered_data = pickle.load(f)
     ax = axes[idx]
 
+    # runs before d738434 saved all parameters (n_params, num, 1) or a numpy array
+    original_data = torch.as_tensor(original_data).detach()
+    if original_data.dim() == 3:
+        original_data = original_data[idx]
+    original_data = original_data.reshape(-1)
+    recovered_data = torch.as_tensor(recovered_data).detach().reshape(-1)
+
     data = []
     orig_col, rec_col = f"original {var}", f"recovered {var}"
 
     for i in range(recovered_data.size(0)):
-        data.append([original_data[i][0].item(), recovered_data[i][0].item()])
+        data.append([original_data[i].item(), recovered_data[i].item()])
 
     df = pd.DataFrame(data, columns=[orig_col, rec_col])
 

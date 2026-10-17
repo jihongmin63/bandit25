@@ -44,7 +44,7 @@ for subj in tqdm(range(num)) :
         def objective(x) :
             masked_param[selected_idx] = torch.tensor(x)
             _, _, _, _, prob = simulate(masked_param, envs[subj], Kalman_SM, test = 1, real_actions=al, real_rewards=rl)
-            return -prob
+            return -prob.item()  # scipy needs a float, not a tensor
 
         res = minimize(objective, x0, bounds = bound[selected_idx], method = 'L-BFGS-B')
         recovered_params[subj].append(res.x[0].tolist())

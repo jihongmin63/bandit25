@@ -7,14 +7,15 @@ import torch
 import matplotlib.pyplot as plt
     
 
+with open("results/params/Vectorized_Restless_params","rb") as f:
+    original_data, recovered_data = pickle.load(f)
+
 fig, axes = plt.subplots(2, 5, figsize=(20, 8))  # 가로 5, 세로 2
 axes = axes.flatten()  # 2차원을 1차원 리스트로 펼침
 
 for idx, var in enumerate(free_varaibles['Kalman_SM']):
     print(idx, var)
     ax = axes[idx]
-    with open(f"results/params/Vectorized_{var}_maksed_Restless_params","rb") as f:
-        original_data, recovered_data = pickle.load(f)
 
     data = []
     orig_col, rec_col = f"original {var}", f"recovered {var}"
